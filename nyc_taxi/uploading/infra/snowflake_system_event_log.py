@@ -110,24 +110,51 @@ class SnowflakeLoadLogRepository(LoadLogRepository):
     # Practical methods — explicitly include event_id + standard fields
     def log_ingest_success(self, *, event_id: str, run_id: str, component: str, entity_id: str, message: str, metadata: dict)-> None:
         self._insert_event(
-                event_id= 
-                run_id= ,
-                event_timestamp= ,
-                event_level= ,
-                event_type= ,
-                component= ,
-                entity_type= ,
-                entity_id= ,
-                status= ,
-                message= ,
-                error_code= ,
-                error_details= ,
-                metadata= 
+            event_id= event_id,
+            run_id= run_id,                
+            event_level= 'INFO',
+            event_type= "INGEST",
+            component= component,
+            entity_type= 'FILE',
+            entity_id= entity_id,
+            status= 'SUCCESS',
+            message= message,
+            error_code= None,
+            error_details= None,
+            metadata= metadata
         )
 
-    def log_ingest_failure(elf, run_id: str, entity_type: str, entity_id: str, component: str, message: str, error_details: str, metadata: dict)-> None:
-        pass
+    def log_ingest_failure(self, *, event_id: str, run_id: str, component: str, entity_id: str, message: str, error_details: str, metadata: dict)-> None:
+        self._insert_event(
+            event_id= event_id,
+            run_id= run_id,                
+            event_level= 'INFO',
+            event_type= "INGEST",
+            component= component,
+            entity_type= 'FILE',
+            entity_id= entity_id,
+            status= 'FAILURE',
+            message= message,
+            error_code= None,
+            error_details= error_details,
+            metadata= metadata
+        )
 
+    def log_run_event(self, *, event_id: str, run_id: str, component: str, entity_id: str, message: str, metadata: dict)-> None:
+        self._insert_event(
+            event_id= event_id,
+            run_id= run_id,                
+            event_level= 'RUN',
+            event_type= "PIPELINE",
+            component= component,
+            entity_type= 'RUN',
+            entity_id= entity_id,
+            status= 'SUCCESS',
+            message= message,
+            error_code= None,
+            error_details= None,
+            metadata= metadata
+        )
 
 if __name__=='__main__':
     load_dotenv()
@@ -139,28 +166,6 @@ if __name__=='__main__':
     snowflake_config = SnowflakeConfig.from_env().to_connector_kwarg()
     sn_inst = SnowflakeLoadLogRepository(conn_params=snowflake_config)
 
-    sn_inst._insert_event(event_id='1', run_id='a', event_level='')
-
-
-
-
-    # already_loded = sn_inst.already_loaded(list_files_stable_key)
-    # print(already_loded)
-
-    # sql_exec_1 ="""
-    # INSERT INTO NYC_TAXI.SYSTEM_EVENT_LOG (event_id, run_id, event_timestamp, event_level, event_type, component, entity_type, entity_id, status, message, error_code, error_details, metadata)
-    # SELECT 
-    #     'evt_123',
-    #     'run_456',
-    #     CURRENT_TIMESTAMP(),
-    #     'INFO',
-    #     'PROCESS_START',
-    #     'ETL_PIPELINE',
-    #     'JOB',
-    #     'taxi_zone_lookup.csv|12331|1766611598',
-    #     'SUCCESS',
-    #     'Process started successfully',
-    #     NULL,
-    #     NULL,
-    #     PARSE_JSON('{"key":"value"}')
-    # """
+    sn_inst._insert_event(event_id='1', run_id='a', event_level=''...)
+    # sn_inst.log_ingest_success()
+    # sn_inst.log_ingest_failure()
