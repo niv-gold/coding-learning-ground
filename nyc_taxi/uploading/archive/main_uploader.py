@@ -1,6 +1,6 @@
-from nyc_taxi.uploading.core.s3_client import S3Client
+from nyc_taxi.uploading.archive.s3_client import S3Client
 from nyc_taxi.uploading.archive.config import S3Config
-from nyc_taxi.uploading.core.local_file_manager import LocalFilesManager
+from nyc_taxi.uploading.archive.local_file_manager import LocalFilesManager
 
 def run():
 

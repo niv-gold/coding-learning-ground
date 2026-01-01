@@ -5,7 +5,7 @@ from .models import FileIdentity
 
 class FileFinder(ABC):
     @abstractmethod
-    def list_files(self) -> list[FileIdentity]:
+    def list_files(self)-> list[FileIdentity]:
         pass
 
 class Uploader(ABC):
@@ -16,19 +16,14 @@ class Uploader(ABC):
 
 class LoadLogRepository(ABC):
     @abstractmethod
-    def already_loaded(self, file_keys: list[str]) -> set[str]:
-        """Return subset of file_keys already loaded successfully."""
-        pass
+    def already_loaded(self, entity_ids: list[str]) -> set[str]:
+        """Return subset of entity_ids already loaded successfully."""
+        raise NotImplementedError
 
     @abstractmethod
-    def log_success(self, file: FileIdentity, destination: str) -> None:
-        pass
+    def log_success(self, run_id: str, entity_type: str, entity_id: str, component: str, message: str, metadata: dict) -> None:
+        raise NotImplementedError
 
     @abstractmethod
-    def log_failure(self, file: FileIdentity, error: str) -> None:
-        pass
-
-class Archiver(ABC):
-    @abstractmethod
-    def archive(self, file: FileIdentity) -> None:
-        pass
+    def log_failure(self, run_id: str, entity_type: str, entity_id: str, component: str, message: str, error_details: str, metadata: dict) -> None:
+        raise NotImplementedError

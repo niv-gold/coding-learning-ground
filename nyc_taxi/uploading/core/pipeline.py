@@ -20,12 +20,12 @@ class IngestionPipeline:
         new_files = [f for f in files if f.stable_key not in loaded_keys]
         print(f"Discovered: {len(files)}, New: {len(new_files)}")
 
-        for f in new_files:
-            try:
-                dest = self.uploader.upload(f)
-                self.log_repo.log_success(f, dest)
-                self.archiver.archive(f)
-                print(f"SUCCESS: {f.name} -> {dest}")
-            except Exception as e:
-                self.log_repo.log_failure(f, str(e))
-                print(f"FAIL: {f.name} -> {e}")
+        # for f in new_files:
+        #     try:
+        #         dest = self.uploader.upload(f)
+        #         self.log_repo.log_success(f, dest)
+        #         self.archiver.archive(f)
+        #         print(f"SUCCESS: {f.name} -> {dest}")
+        #     except Exception as e:
+        #         self.log_repo.log_failure(f, str(e))
+        #         print(f"FAIL: {f.name} -> {e}")

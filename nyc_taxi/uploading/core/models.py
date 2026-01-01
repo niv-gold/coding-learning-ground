@@ -25,7 +25,7 @@ class FileIdentity:
 
 if __name__ == '__main__':
 
-    f = DC_inst = FileIdentity(Path('nyc_taxi/uploading/archive/data files/taxi_zone_lookup.csv'),12345,datetime.now())
+    f  = FileIdentity(Path('nyc_taxi/uploading/app/data_files/taxi_zone_lookup.csv'),12345,datetime.now())
     if f.path.exists():
         print(f'file Exist - {f.stable_key}')
     else:
