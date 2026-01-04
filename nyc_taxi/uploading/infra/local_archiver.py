@@ -1,4 +1,3 @@
-from nyc_taxi.uploading.infra.local_finder import LocalFileFinder
 from nyc_taxi.uploading.core.ports import Archiver, FileIdentity
 from pathlib import Path
 from nyc_taxi.uploading.config.settings import MyLocalData

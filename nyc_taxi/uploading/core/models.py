@@ -8,7 +8,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class FileIdentity:
     path: Path
-    size_byte: int
+    size_bytes: int
     modified_time: datetime 
     
     @property
@@ -21,7 +21,7 @@ class FileIdentity:
         A practical stable identifier for 'already loaded?' checks.
         (For stronger guarantees later: add checksum.)
         """
-        return f"{self.name}|{self.size_byte}|{int(self.modified_time.timestamp())}"
+        return f"{self.name}|{self.size_bytes}|{int(self.modified_time.timestamp())}"
 
 if __name__ == '__main__':
 

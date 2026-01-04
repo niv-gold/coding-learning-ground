@@ -1,32 +1,25 @@
 from nyc_taxi.uploading.core.pipeline import IngestionPipeline
 from nyc_taxi.uploading.infra.local_finder import LocalFileFinder
 from nyc_taxi.uploading.infra.local_archiver import ArchiveLocalFiles
-from nyc_taxi.uploading.config.settings import MyLocalData
 from nyc_taxi.uploading.infra.s3_uploader import S3Uploader
-from nyc_taxi.uploading.config.settings import S3Config
+from nyc_taxi.uploading.config.settings import S3Config, SnowflakeConfig
+from nyc_taxi.uploading.infra.snowflake_system_event_log import SnowflakeLoadLogRepository
 from dotenv import load_dotenv
-import os
 
 def main():
 
     # set configurations:
-    path = MyLocalData.loacl_path
     load_dotenv()
-    config_s3 = S3Config(
-        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID", None),
-        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY", None),
-        region_name = os.getenv("AWS_REGION", None),
-        bucket_name = os.getenv("S3_BUCKET_NAME", None),
-        local_file_extension = os.getenv("LOCAL_FILE_EXTENSION", None),
-    ) 
+    s3_config = S3Config.from_env()
+    snowflake_config = SnowflakeConfig.from_env().to_connector_kwarg()
 
     # classes instantiation:
-    filefinder = LocalFileFinder(path)
-    uploader = S3Uploader(config=config_s3, base_prefix='raw')
-    # loadLogReposetory = 
+    filefinder = LocalFileFinder()
+    uploader = S3Uploader(config=s3_config, base_prefix='raw')
+    loadLogReposetory = SnowflakeLoadLogRepository(conn_params=snowflake_config)
     archive = ArchiveLocalFiles()
     
-    # IngestionPipeline(filefinder, Uploader, loadLogReposetory, archive)
+    IngestionPipeline(filefinder, uploader, loadLogReposetory, archive).run()
 
 if __name__=='__main__':
     main()

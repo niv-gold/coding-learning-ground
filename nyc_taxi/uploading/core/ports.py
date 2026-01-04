@@ -1,6 +1,5 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Iterable
 from .models import FileIdentity
 
 class FileFinder(ABC):
@@ -13,6 +12,10 @@ class Uploader(ABC):
     def upload(self, file: FileIdentity) -> str:
         """Return destination reference (e.g., s3://bucket/key)."""
         pass
+class Archiver(ABC):
+    @abstractmethod
+    def archive():        
+        raise NotImplementedError
 
 class LoadLogRepository(ABC):
     @abstractmethod
@@ -26,4 +29,20 @@ class LoadLogRepository(ABC):
 
     @abstractmethod
     def log_failure(self, run_id: str, entity_type: str, entity_id: str, component: str, message: str, error_details: str, metadata: dict) -> None:
+        raise NotImplementedError
+    
+    @abstractmethod
+    def log_run_started(self, run_id: str, entity_type: str, entity_id: str, component: str, message: str, metadata: dict) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def log_run_finished(self, run_id: str, entity_type: str, entity_id: str, component: str, message: str, metadata: dict) -> None:
+        raise NotImplementedError 
+
+    @abstractmethod
+    def log_ingest_success(self, run_id: str, entity_type: str, entity_id: str, component: str, message: str, metadata: dict) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def log_ingest_failure(self, run_id: str, entity_type: str, entity_id: str, component: str, message: str, error_details: str, metadata: dict) -> None:
         raise NotImplementedError
