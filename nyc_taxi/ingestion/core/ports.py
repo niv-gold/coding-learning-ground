@@ -23,7 +23,7 @@ class FileFinder(ABC):
         pass
 
 class Uploader(ABC):
-    """Interface for uploading files to a destination storage.
+    """Interface for ingestion files to a destination storage.
     
     Implementations handle transferring file content to cloud storage
     such as S3, with support for folder prefixes and metadata.

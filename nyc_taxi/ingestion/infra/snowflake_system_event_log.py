@@ -17,9 +17,9 @@ handling.
 
 from __future__ import annotations
 from snowflake import connector
-from nyc_taxi.uploading.core.ports import LoadLogRepository
-from nyc_taxi.uploading.config.settings import SnowflakeConfig
-from nyc_taxi.uploading.infra.local_finder import LocalFileFinder
+from nyc_taxi.ingestion.core.ports import LoadLogRepository
+from nyc_taxi.ingestion.config.settings import SnowflakeConfig
+from nyc_taxi.ingestion.infra.local_finder import LocalFileFinder
 import uuid
 from pathlib import Path
 import json
@@ -315,7 +315,7 @@ if __name__ == '__main__':
     # Quick manual test harness (requires a .env with Snowflake credentials)
     load_dotenv()
 
-    path = Path('/home/niv/home/GitHubeRepos/my_codes/nyc_taxi/uploading/app/data_files')
+    path = Path('/home/niv/home/GitHubeRepos/my_codes/nyc_taxi/ingestion/app/data_files')
     files = LocalFileFinder(path).list_files()
     list_files_stable_key = [file.stable_key for file in files]
 

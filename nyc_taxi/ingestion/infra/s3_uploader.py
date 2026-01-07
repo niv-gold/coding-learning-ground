@@ -1,10 +1,10 @@
 from __future__ import annotations
-from nyc_taxi.uploading.config.settings import S3Config
-from nyc_taxi.uploading.core.ports import Uploader, FileIdentity
-from nyc_taxi.uploading.infra.s3_clinet import S3Client
+from nyc_taxi.ingestion.config.settings import S3Config
+from nyc_taxi.ingestion.core.ports import Uploader, FileIdentity
+from nyc_taxi.ingestion.infra.s3_clinet import S3Client
 from pathlib import Path
 from datetime import datetime
-from nyc_taxi.uploading.config.settings import MyLocalData
+from nyc_taxi.ingestion.config.settings import MyLocalData
 from dotenv import load_dotenv
 import os
 

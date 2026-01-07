@@ -9,9 +9,9 @@ Behavior:
 - Handles common errors and prints concise diagnostic messages
 """
 
-from nyc_taxi.uploading.core.ports import Archiver, FileIdentity
+from nyc_taxi.ingestion.core.ports import Archiver, FileIdentity
 from pathlib import Path
-from nyc_taxi.uploading.config.settings import MyLocalData
+from nyc_taxi.ingestion.config.settings import MyLocalData
 import shutil
 from datetime import datetime
 
@@ -82,7 +82,7 @@ class ArchiveLocalFiles(Archiver):
 if __name__ == '__main__':
     # Simple local test harness
     file = FileIdentity(
-        Path('/home/niv/home/GitHubeRepos/my_codes/nyc_taxi/uploading/app/data_files/taxi_zone_lookup.csv'),
+        Path('/home/niv/home/GitHubeRepos/my_codes/nyc_taxi/ingestion/app/data_files/taxi_zone_lookup.csv'),
         12345,
         datetime.now(),
     )

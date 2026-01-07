@@ -15,7 +15,7 @@ This is a **learning and experimentation repository** organized into distinct do
 
 ### Architecture
 - **`config.py`**: Dataclass `S3config` holds AWS credentials, bucket name, local paths, S3 prefix
-- **`uploader.py`**: Core orchestration for uploading files to S3
+- **`uploader.py`**: Core orchestration for ingestion files to S3
 - **`s3_client.py`**: AWS S3 client wrapper (currently empty, to be implemented)
 - **`file_finder.py`**: File discovery logic for local batch processing (stub)
 - **`test.py`**: Configuration validation tests

@@ -46,7 +46,7 @@ class FileIdentity:
 
 if __name__ == '__main__':
 
-    f  = FileIdentity(Path('nyc_taxi/uploading/app/data_files/taxi_zone_lookup.csv'),12345,datetime.now())
+    f  = FileIdentity(Path('nyc_taxi/ingestion/app/data_files/taxi_zone_lookup.csv'),12345,datetime.now())
     if f.path.exists():
         # Test FileIdentity creation and validation    
         # Check if the test file exists and display its stable key

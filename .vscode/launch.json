@@ -18,8 +18,8 @@
     {
       "id": "moduleName",
       "type": "promptString",
-      "description": "Enter module to debug (e.g. nyc_taxi.uploading.infra.local_archiver)",
-      "default": "nyc_taxi.uploading.infra.local_archiver"
+      "description": "Enter module to debug (e.g. nyc_taxi.ingestion.infra.local_archiver)",
+      "default": "nyc_taxi.ingestion.infra.local_archiver"
     }
   ]
 }

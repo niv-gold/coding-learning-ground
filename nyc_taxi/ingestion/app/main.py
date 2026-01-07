@@ -1,18 +1,19 @@
-# Main entry point for the NYC Taxi S3 uploading pipeline
+# Main entry point for the NYC Taxi S3 ingestion pipeline
 # Orchestrates file discovery, S3 upload, and Snowflake logging
 
 # Core pipeline orchestration
-from nyc_taxi.uploading.core.pipeline import IngestionPipeline
+from nyc_taxi.ingestion.core.pipeline import IngestionPipeline
 
 # Infrastructure components
-from nyc_taxi.uploading.infra.local_finder import LocalFileFinder
-from nyc_taxi.uploading.infra.local_archiver import ArchiveLocalFiles
-from nyc_taxi.uploading.infra.s3_uploader import S3Uploader
-from nyc_taxi.uploading.infra.snowflake_system_event_log import SnowflakeLoadLogRepository
+from nyc_taxi.ingestion.infra.local_finder import LocalFileFinder
+from nyc_taxi.ingestion.infra.local_archiver import ArchiveLocalFiles
+from nyc_taxi.ingestion.infra.s3_uploader import S3Uploader
+from nyc_taxi.ingestion.infra.snowflake_system_event_log import SnowflakeLoadLogRepository
 
 # Configuration and environment setup
-from nyc_taxi.uploading.config.settings import S3Config, SnowflakeConfig
+from nyc_taxi.ingestion.config.settings import S3Config, SnowflakeConfig
 from dotenv import load_dotenv
+load_dotenv()
 
 def main():
     """Execute the complete NYC Taxi data ingestion pipeline.
@@ -26,7 +27,7 @@ def main():
     """
     
     # Load environment variables from .env file
-    load_dotenv()
+
     
     # Initialize configurations from environment variables
     s3_config = S3Config.from_env()

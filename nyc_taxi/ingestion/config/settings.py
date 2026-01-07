@@ -1,4 +1,4 @@
-# Configuration module for NYC Taxi uploading system
+# Configuration module for NYC Taxi ingestion system
 # Handles AWS S3 and Snowflake connection settings
 
 from dataclasses import dataclass, fields
