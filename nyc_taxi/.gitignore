@@ -1,0 +1,28 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+venv_*/
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Local data files
+data/
+*.csv
+*.parquet
+
+# Credentials
+*.env
+secrets.json
+
+# Great Expectations
+ingestion/graet_expectations/uncommitted
+ingestion/graet_expectations/validations

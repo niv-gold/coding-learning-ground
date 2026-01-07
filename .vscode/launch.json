@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug: Any nyc_taxi module (prompt)",
+      "type": "python",
+      "request": "launch",
+      "module": "${input:moduleName}",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "inputs": [
+    {
+      "id": "moduleName",
+      "type": "promptString",
+      "description": "Enter module to debug (e.g. nyc_taxi.ingestion.infra.local_archiver)",
+      "default": "nyc_taxi.ingestion.infra.local_archiver"
+    }
+  ]
+}
