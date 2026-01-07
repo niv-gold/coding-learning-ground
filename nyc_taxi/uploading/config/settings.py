@@ -1,12 +1,16 @@
+# Configuration module for NYC Taxi uploading system
+# Handles AWS S3 and Snowflake connection settings
+
 from dataclasses import dataclass, fields
 from nyc_taxi.utils import required_value, to_connector_kwarg_utils
 from pathlib import Path
 import os
-from dotenv import load_dotenv  #only for test usage!!!
+from dotenv import load_dotenv  # only for test usage!!!
 
 
 @dataclass
 class MyLocalData:
+    """Paths for local data storage and archive locations."""
     loacl_path:Path = Path(Path(__file__).resolve().parent.parent.as_posix() + '/app/data_files')
     archive_path:Path = Path(Path(__file__).resolve().parent.parent.as_posix() + '/app/data_files/archive')
 
@@ -40,8 +44,8 @@ class S3Config:
     @classmethod
     def from_env(cls)-> "S3Config":
         """
-        Load Snowflake config from environment variables.
-        Fail fast if something important is missing.
+        Load S3 config from .env file, inject credentials on runtime.
+        Fail fast if any required variable is missing.
         """
         return cls(
             aws_access_key_id = required_value("AWS_ACCESS_KEY_ID"),
@@ -52,9 +56,11 @@ class S3Config:
         )
     
     def to_connector_kwarg(self)-> dict:
+        """Convert dataclass fields to a dictionary of connector kwargs."""
         return to_connector_kwarg_utils(self)
     
     def __repr__(self) -> str:
+        """String representation with redacted sensitive credentials."""
         return (
             "S3Config("
             f"aws_access_key_id={self.aws_access_key_id!r},  aws_secret_access_key='***REDACTED***', "
