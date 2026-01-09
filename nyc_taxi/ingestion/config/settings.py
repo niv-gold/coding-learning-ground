@@ -28,8 +28,7 @@ class S3Config:
         region_name (str): AWS region where the S3 bucket is located
                           (e.g., 'us-east-1', 'eu-west-1')
         bucket_name (str): Name of the S3 bucket to upload files to
-        local_base_path (str): Local directory path where files to upload
-                              are located (e.g., '/data/uploads/')
+        local_file_extension (str): File extension of local files to upload
         s3_base_prefix (str, optional): Prefix/folder structure in S3 bucket
                                        (e.g., 'raw/', 'staging/')
                                        Defaults to '' (bucket root)
@@ -40,6 +39,7 @@ class S3Config:
     region_name: str
     bucket_name: str
     local_file_extension: str
+    s3_base_prefix_name: str = ""
 
     @classmethod
     def from_env(cls)-> "S3Config":
@@ -52,7 +52,8 @@ class S3Config:
             aws_secret_access_key = required_value("AWS_SECRET_ACCESS_KEY"),
             region_name = required_value("AWS_REGION"),
             bucket_name = required_value("S3_BUCKET_NAME"),
-            local_file_extension = required_value("LOCAL_FILE_EXTENSION")
+            local_file_extension = required_value("LOCAL_FILE_EXTENSION"),
+            s3_base_prefix_name = required_value("S3_BASE_PREFIX_NAME"),
         )
     
     def to_connector_kwarg(self)-> dict:
@@ -69,6 +70,7 @@ class S3Config:
 
 @dataclass(frozen=True)
 class SnowflakeConfig:
+    """Configuration dataclass for Snowflake database connection."""
     account: str
     user: str
     password: str
@@ -112,11 +114,27 @@ class SnowflakeConfig:
             f"role={self.role!r}, log_table={self.log_table!r})"
         )
 
+@dataclass(frozen=True)
+class GreatExpectationsConfig:
+    ge_root_dir: str
+    ge_data_context_id: str
+
+    @staticmethod
+    def get_default_ge_root_dir() -> str:
+        """Get default Great Expectations root directory path."""
+        return os.path.join(Path(__file__).resolve().parents[2].as_posix(), "great_expectations")
+
+    @classmethod
+    def from_env(cls) -> "GreatExpectationsConfig":
+        """Configuration for Great Expectations data validation."""
+        return cls(
+            ge_root_dir = cls.get_default_ge_root_dir(),
+            ge_data_context_id = required_value("GX_SUITE_NAME")
+        )
+
+
 if __name__=="__main__":
     load_dotenv()
 
     for k,v in SnowflakeConfig.from_env().to_connector_kwarg().items():
         print(f'{k}: {v}')
-
-    # for k,v in S3Config.from_env().to_connector_kwarg().items():
-    #     print(f'{k}: {v}')
