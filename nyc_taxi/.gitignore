@@ -22,7 +22,3 @@ data/
 # Credentials
 *.env
 secrets.json
-
-# Great Expectations
-ingestion/graet_expectations/uncommitted
-ingestion/graet_expectations/validations
