@@ -104,11 +104,25 @@ fluent_datasources:
       region_name: us-east-1
   s3_raw_data:
     type: pandas_s3
+    assets:
+      raw_csv:
+        type: csv
+        batching_regex: (?P<file_name>.*)\.csv
+        connect_options:
+          s3_prefix: raw/
+      raw_parquet:
+        type: parquet
+        batching_regex: (?P<file_name>.*)\.parquet
+        connect_options:
+          s3_prefix: raw/
     bucket: nyc-taxi-dev
     boto3_options:
       region_name: us-east-1
-  default_pandas_datasource:
-    type: pandas
+  s3_raw_data_1:
+    type: pandas_s3
+    bucket: nyc-taxi-dev
+    boto3_options:
+      region_name: us-east-1
 notebooks:
 include_rendered_content:
   globally: false

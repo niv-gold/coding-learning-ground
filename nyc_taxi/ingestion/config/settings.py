@@ -5,7 +5,9 @@ from dataclasses import dataclass, fields
 from nyc_taxi.utils import required_value, to_connector_kwarg_utils
 from pathlib import Path
 import os
+from typing import Optional, Dict, Any, List, Iterable
 from dotenv import load_dotenv  # only for test usage!!!
+from great_expectations.datasource.fluent import PandasS3Datasource
 
 
 @dataclass
@@ -132,6 +134,58 @@ class GreatExpectationsConfig:
             ge_data_context_id = required_value("GX_SUITE_NAME")
         )
 
+@dataclass(frozen=True, slots=True)
+class GXS3AssetSpec():
+    data_source_name: str
+    s3conf: S3Config
+    data_source: PandasS3Datasource    
+    asset_name: str
+    batching_regex: str  # e.g. r"(?P<file_name>.*)\.csv"
+    asset_type: str
+
+    @property
+    def bucket(self) -> str:
+        return self.s3conf.bucket_name
+    
+    @property
+    def region(self) -> str:
+        return self.s3conf.region_name
+    
+    @property
+    def s3_prefix(self) -> str:
+        return self.s3conf.s3_base_prefix_name
+
+    def to_kwarg(self) -> Dict[str, Any]:
+        return {
+            "bucket": self.bucket,
+            "region": self.region,  
+            "s3_prefix": self.s3_prefix,
+            "asset_name": self.asset_name,            
+            "batching_regex": self.batching_regex,
+            "asset_type": self.asset_type
+        }
+
+@dataclass(frozen=True, slots=True)
+class GXValidationSpec:
+    suite_name: str
+    validation_definition_name: str
+    batch_definition_name: str
+    batch_options: Dict[str, Any]  # e.g. {"file_name": "sample"}
+
+@dataclass(frozen=True, slots=True)
+class GXCheckpointSpec:
+    checkpoint_name: str
+    data_docs_site_name: str = "local_site"
+    build_data_docs: bool = True
+
+    # Email is optional (recommended to keep off for first iteration).
+    email_on_failure: bool = False
+    smtp_address: Optional[str] = None
+    smtp_port: Optional[str] = None
+    sender_login: Optional[str] = None
+    sender_password: Optional[str] = None
+    receiver_emails: Optional[str] = None
+    use_ssl: bool = True
 
 if __name__=="__main__":
     load_dotenv()
