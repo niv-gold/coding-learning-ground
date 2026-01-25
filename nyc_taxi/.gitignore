@@ -16,8 +16,8 @@ venv_*/
 
 # Local data files
 data/
-*.csv
-*.parquet
+# *.csv
+# *.parquet
 
 # Credentials
 *.env

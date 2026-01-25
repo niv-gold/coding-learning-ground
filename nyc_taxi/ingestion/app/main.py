@@ -1,5 +1,11 @@
 # Main entry point for the NYC Taxi S3 ingestion pipeline
 # Orchestrates file discovery, S3 upload, and Snowflake logging
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    PROJECT_ROOT = Path(__file__).resolve().parents[3]
+    sys.path.insert(0, str(PROJECT_ROOT))
+    print("Project root added to sys.path[0]:", sys.path[0])
 
 # Core pipeline orchestration
 from nyc_taxi.ingestion.core.pipeline import IngestionPipeline

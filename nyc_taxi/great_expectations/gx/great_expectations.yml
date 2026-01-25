@@ -123,6 +123,32 @@ fluent_datasources:
     bucket: nyc-taxi-dev
     boto3_options:
       region_name: us-east-1
+  s3_nyc-taxi-dev_raw/:
+    type: pandas_s3
+    bucket: nyc-taxi-dev
+    boto3_options:
+      region_name: us-east-1
+  test_ds:
+    type: pandas_s3
+    bucket: my-bucket
+    boto3_options:
+      region_name: us-east-1
+  s3_nyc-taxi-dev_raw:
+    type: pandas_s3
+    assets:
+      raw_csv:
+        type: csv
+        batching_regex: (?P<file_name>.*)\.csv
+        connect_options:
+          s3_prefix: raw/csv/
+      raw_parquet:
+        type: parquet
+        batching_regex: (?P<file_name>.*)\.parquet
+        connect_options:
+          s3_prefix: raw/parquet/
+    bucket: nyc-taxi-dev
+    boto3_options:
+      region_name: us-east-1
 notebooks:
 include_rendered_content:
   globally: false

@@ -136,10 +136,11 @@ class GreatExpectationsConfig:
 
 @dataclass(frozen=True, slots=True)
 class GXS3AssetSpec():
-    data_source_name: str
     s3conf: S3Config
+    data_source_name: str
     data_source: PandasS3Datasource    
     asset_name: str
+    s3_prefix_relative: str  # Relative S3 folder (e.g., 'csv/', 'parquet/')
     batching_regex: str  # e.g. r"(?P<file_name>.*)\.csv"
     asset_type: str
 
@@ -153,6 +154,9 @@ class GXS3AssetSpec():
     
     @property
     def s3_prefix(self) -> str:
+        """Combines base prefix with relative prefix to create full S3 path."""
+        if self.s3_prefix_relative:
+            return f"{self.s3conf.s3_base_prefix_name}/{self.s3_prefix_relative}"
         return self.s3conf.s3_base_prefix_name
 
     def to_kwarg(self) -> Dict[str, Any]:
@@ -186,9 +190,3 @@ class GXCheckpointSpec:
     sender_password: Optional[str] = None
     receiver_emails: Optional[str] = None
     use_ssl: bool = True
-
-if __name__=="__main__":
-    load_dotenv()
-
-    for k,v in SnowflakeConfig.from_env().to_connector_kwarg().items():
-        print(f'{k}: {v}')

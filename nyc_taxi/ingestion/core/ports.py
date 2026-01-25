@@ -43,7 +43,7 @@ class Uploader(ABC):
         """
         pass
 class Archiver(ABC):
-    """Interface for archiving processed files locally.
+    """Interface for archiving processed files locally or on cloud storage.
     
     Implementations handle moving or copying successfully processed files
     to an archive location for retention and organizational purposes.
