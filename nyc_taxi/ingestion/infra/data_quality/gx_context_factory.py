@@ -9,17 +9,15 @@ if __name__ == "__main__":
     sys.path.insert(0, str(PROJECT_ROOT))
     print("Project root added to sys.path[0]:", sys.path[0])
 
-from nyc_taxi.ingestion.config.settings import GreatExpectationsConfig, S3Config, GXS3AssetSpec
+from nyc_taxi.ingestion.config.settings import GreatExpectationsConfig, GXCheckpointSpec, GeneralConfig
 import great_expectations as gx
-from great_expectations.datasource.fluent import PandasS3Datasource, BatchRequest
+from great_expectations.datasource.fluent import PandasS3Datasource
 from nyc_taxi.ingestion.config.settings import GreatExpectationsConfig 
 from great_expectations.core import ExpectationSuite
 from great_expectations.core.expectation_configuration import ExpectationConfiguration
 from great_expectations.core.batch import Batch
 from typing import Callable, Optional, Dict, Any
 from datetime import datetime, timezone
-from dotenv import load_dotenv
-import json
 
 #%%
 class GreatExpectationsContextFactory:
@@ -31,6 +29,9 @@ class GreatExpectationsContextFactory:
     def __init__(self):
         self._context: gx.DataContext | None = None
         self.gx_project_root_dir: str = GreatExpectationsConfig.from_env().ge_root_dir
+        self.general_config: GeneralConfig = GeneralConfig.from_env()
+        self.info_msg_prefix: str = self.general_config.info_msg_prefix
+        self.error_msg_prefix: str = self.general_config.error_msg_prefix
 
     # ---------------------------------------------------------------------------------------
     # Context, data_source building blocks
@@ -41,14 +42,14 @@ class GreatExpectationsContextFactory:
             context = gx.get_context(mode="file", project_root_dir=self.gx_project_root_dir)
             return context
         except Exception as e:
-            print("Error creating/loading Great Expectations DataContext:", e)
+            print(f"{self.error_msg_prefix} creating/loading Great Expectations DataContext: {e}")
             raise ConnectionError("Failed to create/load GX DataContext.") from e
 
     def get_or_create_context(self) -> gx.DataContext | None:
         """Get the Great Expectations DataContext."""
         if self._context is None:
             self._context = self._create_context()
-        print("--> Great Expectations DataContext ready.")
+        print(f"{self.info_msg_prefix} Great Expectations DataContext ready.")
         return self._context 
     
     def get_or_create_pandas_s3_datasource(self, ds_name: str, **kwarg )-> PandasS3Datasource:
@@ -61,10 +62,10 @@ class GreatExpectationsContextFactory:
                 bucket=kwarg["bucket_name"],
                 boto3_options={"region_name": kwarg["region_name"]} if kwarg["region_name"] else {},
             )
-            print(f"--> Created/Reused Pandas S3 data_source '{ds_name}'.")
+            print(f"{self.info_msg_prefix} Created/Reused Pandas S3 data_source '{ds_name}'.")
             return data_source
         except Exception as e:
-            print("Error creating Pandas S3 data_source:", e)
+            print(f"{self.error_msg_prefix} creating Pandas S3 data_source: {e}")
             raise ConnectionError("Failed to create GX Pandas S3 data_source.") from e
         
     # ---------------------------------------------------------------------------------------
@@ -99,11 +100,11 @@ class GreatExpectationsContextFactory:
             # Sanity check
             if _DataAssetT is None:
                 raise RuntimeError("Asset creation returned None.")
-            print(f"--> Created new Asset '{kwarg["asset_name"]}'.")
+            print(f"{self.info_msg_prefix} Created new Asset '{kwarg["asset_name"]}'.")
             return _DataAssetT
 
         except Exception as e:
-            print("Error creating Asset:", e)
+            print(f"{self.error_msg_prefix} creating Asset: {e}")
             raise RuntimeError() from e
     
     def get_or_create_asset(self, data_source: PandasS3Datasource, **kwarg) -> Any:
@@ -116,7 +117,7 @@ class GreatExpectationsContextFactory:
             """
         try:
             _DataAssetT = data_source.get_asset(kwarg["asset_name"])
-            print(f"--> Found existing Asset '{kwarg["asset_name"]}'.")
+            print(f"{self.info_msg_prefix} Found existing Asset '{kwarg["asset_name"]}'.")
             return _DataAssetT
         except Exception:         
             return self._create_asset( data_source = data_source, **kwarg)       
@@ -146,7 +147,6 @@ class GreatExpectationsContextFactory:
                 kwargs={"column": "id"},
             ),
         ]
-        print(f"--> Built {len(expactations)} landing expectations.")
         return expactations
     
 
@@ -171,8 +171,6 @@ class GreatExpectationsContextFactory:
         }
         if extra:
             meta.update(extra)
-
-        print(f"--> Built suite metadata with keys: {list(meta.keys())}.")
         return meta
 
     def get_or_create_suite(self, suite_name: str, *, expectations: list[ExpectationConfiguration], 
@@ -196,7 +194,7 @@ class GreatExpectationsContextFactory:
             suite = self._context.get_expectation_suite(expectation_suite_name=suite_name)
         except gx.exceptions.DataContextError:
             suite = ExpectationSuite(expectation_suite_name=suite_name)
-            print(f"--> Created new Expectation Suite '{suite_name}'.")
+            print(f"{self.info_msg_prefix} Created new Expectation Suite '{suite_name}'.")
 
         # Update meta (merge so we don't lose other keys)
         suite.meta = {**(suite.meta or {}), **meta}
@@ -207,14 +205,15 @@ class GreatExpectationsContextFactory:
 
         # Persist idempotently (0.18.21)
         self._context.add_or_update_expectation_suite(expectation_suite=suite)
-        print(f"--> Upserted Expectation Suite '{suite_name}' with {len(suite.expectations)} expectations.")
+        print(f"{self.info_msg_prefix} Upserted Expectation Suite '{suite_name}' with {len(suite.expectations)} expectations.")
         
         return suite
 
-    def get_asset_batch_requests(self, datasource: PandasS3Datasource, asset_name: str, asset_type: str) -> list[Any]:
+    def get_asset_batches(self, data_source_name: str, asset_name: str, asset_type: str) -> list[Any]:
         
+        datasource = self._context.get_datasource(data_source_name)
         if datasource is None:
-            raise ValueError("datasource must be a non-empty.")
+            raise ValueError(f"datasource '{data_source_name}' not found.")
         if not asset_name or not asset_name.strip():
             raise ValueError("asset_name must be a non-empty string.")
             
@@ -222,14 +221,12 @@ class GreatExpectationsContextFactory:
             _DataAssetT = datasource.get_asset(asset_name)
             batch_request_all = _DataAssetT.build_batch_request()
             batches: list[Batch] = _DataAssetT.get_batch_list_from_batch_request(batch_request_all)
-            print(f"--> Found {len(batches)} batches in {asset_type} Asset:")
+            print(f"{self.info_msg_prefix} Found {len(batches)} batches in {asset_type} Asset:")
 
-            batch_requests = [Any]
+            asset_batches = []
             for i, batch in enumerate(batches, start=1):
-                identifiers = batch.batch_definition.batch_identifiers                
-                batch_request = _DataAssetT.build_batch_request(options=identifiers)
-                batch_requests.append(batch_request)
-                print(f"Batch {i}: {identifiers}")
+                asset_batches.append(batch)
+                print(f"  Batch {i}: {batch.batch_definition.batch_identifiers}")
 
             # for batch in Batches:
             #     print(json.dumps(
@@ -238,59 +235,134 @@ class GreatExpectationsContextFactory:
             #         default=str,
             #     ))        
         except Exception as e:
-            print("Error retrieving batche request:", e)
+            print(f"{self.error_msg_prefix} retrieving batches: {e}")
             raise RuntimeError() from e 
-        return batch_requests
+        return asset_batches
 
-    def get_or_create_validation():
-        pass
-
-    def get_or_create_validation_list():
-        pass
+    def _get_batches_request_list(self, data_source_name: str, asset_name: str) -> list[Any]:
+        """ Get batch request list for the given asset in the specified data source.
+        Args:
+            data_source_name (str): The name of the data source containing the asset.
+            asset_name (str): The name of the asset to retrieve batches for.
+        Returns:
+            list[Any]: List of batch requests for the asset."""
+        datasource = self._context.get_datasource(data_source_name)
+        if datasource is None:
+            raise ValueError(f"datasource '{data_source_name}' not found.")
+        if not asset_name or not asset_name.strip():
+            raise ValueError("asset_name must be a non-empty string.")
+            
+        try:
+            _DataAssetT = datasource.get_asset(asset_name)
+            batch_request_all = _DataAssetT.build_batch_request()
+        except Exception as e:
+            print(f"{self.error_msg_prefix} retrieving batches: {e}")
+            raise RuntimeError() from e 
+        return batch_request_all
     
+    def get_validation_dictionary_list(self, data_source_name: str, asset_name: str, suite_name: str) -> list[Any]:
+        """Get a list of validation dictionaries for the given batch requests and suite name.
+        Args:
+            data_source_name (str): The name of the data source.
+            asset_name (str): The name of the asset.
+            suite_name (str): Name of the expectation suite.
+        Returns:
+            list[Any]: List of validation dictionaries."""
+        try:
+            batch_request_list = self._get_batches_request_list( data_source_name = data_source_name, asset_name = asset_name)
+            return [
+                {
+                    "batch_request": batch_request,
+                    "expectation_suite_name": suite_name,
+                }
+                for batch_request in batch_request_list
+            ]
+        except Exception as e:
+            print(f"{self.error_msg_prefix} building validation dictionary list: {e}")
+            raise RuntimeError() from e
 
-#%%
-if __name__ == "__main__":    
-    load_dotenv()
-    s3_config = S3Config.from_env() 
+    def build_validation_definition_list(self, batch_list: list[Any], suite_name: str ) -> list[Any]:
+        """Build validation definitions list from batch list intangeled with a suite. 
+        Args:
+            batch_list (list[Any]): List of Batch objects.
+            suite_name (str): Name of the expectation suite to use."""
+        print(f"{self.info_msg_prefix} Building validations for suite '{suite_name}' with {len(batch_list)} batches:")
+        
+        validations = []
+        for i, batch in enumerate(batch_list, start=1):
+            validation = {
+                "batch_list": [batch],
+                "expectation_suite_name": suite_name,
+            }
+            validations.append(validation)
 
-#-------------------------------------------------------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------------------------------------------------------
-    factory = GreatExpectationsContextFactory()
-    ds_name = f"s3_{s3_config.bucket_name}_{s3_config.s3_base_prefix_name}"
-    ds = factory.get_or_create_pandas_s3_datasource(ds_name = ds_name, **s3_config.to_connector_kwarg())
+            options = getattr(batch.batch_definition, "batch_identifiers", {}) or {}
+            file_label = options.get("file_name", "<unknown>")
 
-#-------------------------------------------------------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------------------------------------------------------
-    dc_asset_csv = GXS3AssetSpec(
-        s3conf=s3_config,
-        data_source=ds,
-        data_source_name=ds.name,
-        asset_name="raw_csv",
-        s3_prefix_relative="csv/",  # Relative folder (combined with base prefix)
-        batching_regex=r"(?P<file_name>.*)\.csv",
-        asset_type="csv"
-    )
+            print(
+                f"  Validation {i}: "
+                f"suite='{suite_name}', batch='{file_label}'"
+            )
+        return validations
+    
+    def create_validations_from_definitions(self, validation_definitions: list[Any]) -> list[Any]:
+        """Create validation objects from a list of validation definitions."""
+        validations = []
+        for vd in validation_definitions:
+            validator = self._context.get_validator(
+                batch_list=vd["batch_list"],
+                expectation_suite_name=vd["expectation_suite_name"],
+            )
+            validations.append(validator)
+        return validations
+    
+    @staticmethod
+    def _build_action_list(spec: GXCheckpointSpec) -> list[dict]:
+        actions = [
+            {
+                "name": "store_validation_result",
+                "action": {
+                    "class_name": "StoreValidationResultAction",
+                    "module_name": "great_expectations.checkpoint.actions",
+                },
+            }
+        ]
 
-    factory.get_or_create_asset( data_source = dc_asset_csv.data_source, **dc_asset_csv.to_kwarg())
-#-------------------------------------------------------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------------------------------------------------------
-    dc_asset_parquet = GXS3AssetSpec(
-        s3conf=s3_config,
-        data_source=ds,
-        data_source_name=ds.name,
-        asset_name="raw_parquet",
-        s3_prefix_relative="parquet/",  # Relative folder (combined with base prefix)
-        batching_regex=r"(?P<file_name>.*)\.parquet",
-        asset_type="parquet"
-    )
-    factory.get_or_create_asset( data_source = dc_asset_parquet.data_source, **dc_asset_parquet.to_kwarg())
-#-------------------------------------------------------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------------------------------------------------------
+        # update data docs if specified
+        if spec.build_data_docs:
+            actions.append(
+                {
+                    "name": "update_data_docs",
+                    "action": {
+                        "class_name": "UpdateDataDocsAction",
+                        "module_name": "great_expectations.checkpoint.actions",
+                    },
+                }
+            )
 
-    batch_requests_csv = factory.get_asset_batch_requests( datasource = ds, asset_name = dc_asset_csv.asset_name,
-                                                          asset_type = dc_asset_csv.asset_type)
-    print(batch_requests_csv)
-    batch_requests_parquet = factory.get_asset_batch_requests( datasource = ds, asset_name = dc_asset_parquet.asset_name,
-                                                          asset_type = dc_asset_parquet.asset_type)
-    print(batch_requests_parquet)
+        return actions
+    
+    def add_or_update_checkpoint(self, checkpoint_name: str, asset_name: str, validations: list[dict], data_source_name: str, action_list: list[dict] | None = None ) -> Any:
+        """Get or create a checkpoint with specified actions.
+        Args:
+            checkpoint_name (str): Name of the checkpoint.
+            validations (list[dict]): List of validation definitions.
+            actions (Dict[str, Any]): Actions to associate with the checkpoint.
+        Returns:
+            Any: The checkpoint object."""
+        try:
+            checkpoint = self._context.add_or_update_checkpoint(
+                name=checkpoint_name,
+                validations=validations,
+                action_list=action_list,
+            )
+            ds = self._context.get_datasource(data_source_name)
+            _DataAssetT = ds.get_asset(asset_name)
+            batch_request_list = self._get_batches_request_list( data_source_name = data_source_name, asset_name = asset_name)
+            batches: list[Batch] = _DataAssetT.get_batch_list_from_batch_request(batch_request_list)
+            print(f"{self.info_msg_prefix} Upserted Checkpoint '{checkpoint_name}' with: \n  {len(validations)} validations for each of one of the {len(batches)} batches.")
+        except Exception as e:
+            print(f"{self.error_msg_prefix} creating/updating Checkpoint: {e}")
+            raise RuntimeError() from e
+        return checkpoint
+# %%

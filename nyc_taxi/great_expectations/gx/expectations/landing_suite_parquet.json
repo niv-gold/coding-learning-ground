@@ -1,6 +1,6 @@
 {
   "data_asset_type": null,
-  "expectation_suite_name": "landing_gx_suite",
+  "expectation_suite_name": "landing_suite_parquet",
   "expectations": [
     {
       "expectation_type": "expect_table_row_count_to_be_between",
@@ -32,6 +32,6 @@
     "layer": "bronze",
     "managed_by": "code",
     "suite_version": "v1",
-    "updated_at_utc": "2026-01-29T20:19:13.535864+00:00"
+    "updated_at_utc": "2026-02-01T00:27:55.094145+00:00"
   }
 }

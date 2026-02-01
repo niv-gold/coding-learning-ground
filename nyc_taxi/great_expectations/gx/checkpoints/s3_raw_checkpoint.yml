@@ -1,0 +1,35 @@
+name: s3_raw_checkpoint
+config_version: 1.0
+template_name:
+module_name: great_expectations.checkpoint
+class_name: Checkpoint
+run_name_template:
+expectation_suite_name:
+batch_request: {}
+action_list:
+  - name: store_validation_result
+    action:
+      class_name: StoreValidationResultAction
+      module_name: great_expectations.checkpoint.actions
+  - name: update_data_docs
+    action:
+      class_name: UpdateDataDocsAction
+      module_name: great_expectations.checkpoint.actions
+evaluation_parameters: {}
+runtime_configuration: {}
+validations:
+  - batch_request:
+      - datasource_name
+      - s3_nyc-taxi-dev_raw
+    expectation_suite_name: landing_suite_parquet
+  - batch_request:
+      - data_asset_name
+      - raw_parquet
+    expectation_suite_name: landing_suite_parquet
+  - batch_request:
+      - options
+      - {}
+    expectation_suite_name: landing_suite_parquet
+profilers: []
+ge_cloud_id:
+expectation_suite_ge_cloud_id:

@@ -119,7 +119,6 @@ class SnowflakeConfig:
 @dataclass(frozen=True)
 class GreatExpectationsConfig:
     ge_root_dir: str
-    ge_data_context_id: str
 
     @staticmethod
     def get_default_ge_root_dir() -> str:
@@ -131,14 +130,11 @@ class GreatExpectationsConfig:
         """Configuration for Great Expectations data validation."""
         return cls(
             ge_root_dir = cls.get_default_ge_root_dir(),
-            ge_data_context_id = required_value("GX_SUITE_NAME")
         )
 
 @dataclass(frozen=True, slots=True)
 class GXS3AssetSpec():
-    s3conf: S3Config
-    data_source_name: str
-    data_source: PandasS3Datasource    
+    s3conf: S3Config 
     asset_name: str
     s3_prefix_relative: str  # Relative S3 folder (e.g., 'csv/', 'parquet/')
     batching_regex: str  # e.g. r"(?P<file_name>.*)\.csv"
@@ -171,22 +167,29 @@ class GXS3AssetSpec():
 
 @dataclass(frozen=True, slots=True)
 class GXValidationSpec:
+    validation_id: str
     suite_name: str
-    validation_definition_name: str
-    batch_definition_name: str
-    batch_options: Dict[str, Any]  # e.g. {"file_name": "sample"}
-
+    batch_request_options: Dict[str, Any] # e.g., {"file_name": "yellow_tripdata_sample_2019-01.csv"} dict for regex groups/partitions
+    checkpoint_name: str
+    asset_spec: GXS3AssetSpec
+    
 @dataclass(frozen=True, slots=True)
 class GXCheckpointSpec:
     checkpoint_name: str
     data_docs_site_name: str = "local_site"
     build_data_docs: bool = True
+    vd_spec: GXValidationSpec | List[GXValidationSpec] | None = None
 
-    # Email is optional (recommended to keep off for first iteration).
-    email_on_failure: bool = False
-    smtp_address: Optional[str] = None
-    smtp_port: Optional[str] = None
-    sender_login: Optional[str] = None
-    sender_password: Optional[str] = None
-    receiver_emails: Optional[str] = None
-    use_ssl: bool = True
+@dataclass(frozen=True, slots=True)
+class GeneralConfig:
+    """General configuration settings for the ingestion system."""
+    info_msg_prefix: str
+    error_msg_prefix: str
+
+    @classmethod
+    def from_env(cls) -> "GeneralConfig":
+        """Load general config from environment variables."""
+        return cls(
+            info_msg_prefix = required_value("MSG_INFO_PREFIX"),
+            error_msg_prefix = required_value("MSG_ERROR_PREFIX"),
+        )
