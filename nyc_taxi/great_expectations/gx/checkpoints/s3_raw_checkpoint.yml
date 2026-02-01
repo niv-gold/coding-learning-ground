@@ -19,16 +19,36 @@ evaluation_parameters: {}
 runtime_configuration: {}
 validations:
   - batch_request:
-      - datasource_name
-      - s3_nyc-taxi-dev_raw
+      datasource_name: s3_nyc-taxi-dev_raw
+      data_asset_name: raw_csv
+      options:
+        path: raw/csv/taxi_zone_lookup.csv
+        file_name: taxi_zone_lookup
+      batch_slice:
+    expectation_suite_name: landing_suite_csv
+  - batch_request:
+      datasource_name: s3_nyc-taxi-dev_raw
+      data_asset_name: raw_parquet
+      options:
+        path: raw/parquet/fhv_tripdata_2024-01.parquet
+        file_name: fhv_tripdata_2024-01
+      batch_slice:
     expectation_suite_name: landing_suite_parquet
   - batch_request:
-      - data_asset_name
-      - raw_parquet
+      datasource_name: s3_nyc-taxi-dev_raw
+      data_asset_name: raw_parquet
+      options:
+        path: raw/parquet/green_tripdata_2024-01.parquet
+        file_name: green_tripdata_2024-01
+      batch_slice:
     expectation_suite_name: landing_suite_parquet
   - batch_request:
-      - options
-      - {}
+      datasource_name: s3_nyc-taxi-dev_raw
+      data_asset_name: raw_parquet
+      options:
+        path: raw/parquet/yellow_tripdata_2024-01.parquet
+        file_name: yellow_tripdata_2024-01
+      batch_slice:
     expectation_suite_name: landing_suite_parquet
 profilers: []
 ge_cloud_id:

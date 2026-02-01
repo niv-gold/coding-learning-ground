@@ -2,6 +2,7 @@
 from __future__ import annotations
 import sys
 from pathlib import Path
+import os
 
 from traitlets import Any
 if __name__ == "__main__":
@@ -16,6 +17,7 @@ from nyc_taxi.ingestion.config.settings import GreatExpectationsConfig
 from great_expectations.core import ExpectationSuite
 from great_expectations.core.expectation_configuration import ExpectationConfiguration
 from great_expectations.core.batch import Batch
+from great_expectations.validator.validator import Validator
 from typing import Callable, Optional, Dict, Any
 from datetime import datetime, timezone
 
@@ -209,7 +211,7 @@ class GreatExpectationsContextFactory:
         
         return suite
 
-    def get_asset_batches(self, data_source_name: str, asset_name: str, asset_type: str) -> list[Any]:
+    def get_asset_batches(self, data_source_name: str, asset_name: str, asset_type: str) -> list[Batch]:
         
         datasource = self._context.get_datasource(data_source_name)
         if datasource is None:
@@ -226,14 +228,7 @@ class GreatExpectationsContextFactory:
             asset_batches = []
             for i, batch in enumerate(batches, start=1):
                 asset_batches.append(batch)
-                print(f"  Batch {i}: {batch.batch_definition.batch_identifiers}")
-
-            # for batch in Batches:
-            #     print(json.dumps(
-            #         batch.batch_definition.batch_identifiers,
-            #         indent=2,
-            #         default=str,
-            #     ))        
+                print(f"  Batch {i}: {batch.batch_definition.batch_identifiers}")     
         except Exception as e:
             print(f"{self.error_msg_prefix} retrieving batches: {e}")
             raise RuntimeError() from e 
@@ -260,29 +255,8 @@ class GreatExpectationsContextFactory:
             raise RuntimeError() from e 
         return batch_request_all
     
-    def get_validation_dictionary_list(self, data_source_name: str, asset_name: str, suite_name: str) -> list[Any]:
-        """Get a list of validation dictionaries for the given batch requests and suite name.
-        Args:
-            data_source_name (str): The name of the data source.
-            asset_name (str): The name of the asset.
-            suite_name (str): Name of the expectation suite.
-        Returns:
-            list[Any]: List of validation dictionaries."""
-        try:
-            batch_request_list = self._get_batches_request_list( data_source_name = data_source_name, asset_name = asset_name)
-            return [
-                {
-                    "batch_request": batch_request,
-                    "expectation_suite_name": suite_name,
-                }
-                for batch_request in batch_request_list
-            ]
-        except Exception as e:
-            print(f"{self.error_msg_prefix} building validation dictionary list: {e}")
-            raise RuntimeError() from e
-
-    def build_validation_definition_list(self, batch_list: list[Any], suite_name: str ) -> list[Any]:
-        """Build validation definitions list from batch list intangeled with a suite. 
+    def build_asset_validations_br_list(self, batch_list: list[Batch], suite_name: str ) -> list[dict]:
+        """ Build a list of validation dictionaries from a list of Batch objects.
         Args:
             batch_list (list[Any]): List of Batch objects.
             suite_name (str): Name of the expectation suite to use."""
@@ -291,7 +265,7 @@ class GreatExpectationsContextFactory:
         validations = []
         for i, batch in enumerate(batch_list, start=1):
             validation = {
-                "batch_list": [batch],
+                "batch_request": batch.batch_request,
                 "expectation_suite_name": suite_name,
             }
             validations.append(validation)
@@ -304,18 +278,7 @@ class GreatExpectationsContextFactory:
                 f"suite='{suite_name}', batch='{file_label}'"
             )
         return validations
-    
-    def create_validations_from_definitions(self, validation_definitions: list[Any]) -> list[Any]:
-        """Create validation objects from a list of validation definitions."""
-        validations = []
-        for vd in validation_definitions:
-            validator = self._context.get_validator(
-                batch_list=vd["batch_list"],
-                expectation_suite_name=vd["expectation_suite_name"],
-            )
-            validations.append(validator)
-        return validations
-    
+
     @staticmethod
     def _build_action_list(spec: GXCheckpointSpec) -> list[dict]:
         actions = [
@@ -341,8 +304,9 @@ class GreatExpectationsContextFactory:
             )
 
         return actions
-    
-    def add_or_update_checkpoint(self, checkpoint_name: str, asset_name: str, validations: list[dict], data_source_name: str, action_list: list[dict] | None = None ) -> Any:
+
+
+    def add_or_update_checkpoint(self, checkpoint_name: str, validations: list[dict], action_list: list[dict] | None = None ) -> Any:
         """Get or create a checkpoint with specified actions.
         Args:
             checkpoint_name (str): Name of the checkpoint.
@@ -355,14 +319,32 @@ class GreatExpectationsContextFactory:
                 name=checkpoint_name,
                 validations=validations,
                 action_list=action_list,
-            )
-            ds = self._context.get_datasource(data_source_name)
-            _DataAssetT = ds.get_asset(asset_name)
-            batch_request_list = self._get_batches_request_list( data_source_name = data_source_name, asset_name = asset_name)
-            batches: list[Batch] = _DataAssetT.get_batch_list_from_batch_request(batch_request_list)
-            print(f"{self.info_msg_prefix} Upserted Checkpoint '{checkpoint_name}' with: \n  {len(validations)} validations for each of one of the {len(batches)} batches.")
+            )            
         except Exception as e:
             print(f"{self.error_msg_prefix} creating/updating Checkpoint: {e}")
             raise RuntimeError() from e
         return checkpoint
+    
+    def merge_checkpoint_validations(self, checkpoint: Any, new_validations: list[dict]) -> Any:
+        """Merge new validations into an existing checkpoint.
+        Args:
+            checkpoint (Any): The existing checkpoint object.
+            new_validations (list[dict]): New validation definitions to merge.
+        Returns:
+            Any: The updated checkpoint object."""
+        try:
+            existing_validations = checkpoint.validations or []
+            merged_validations = existing_validations.copy()
+            merged_validations.extend(new_validations)
+            checkpoint.validations = merged_validations
+            updated_checkpoint = self._context.add_or_update_checkpoint(
+                name=checkpoint.name,
+                validations=merged_validations,
+                action_list=checkpoint.action_list,
+            )
+            print(f"{self.info_msg_prefix} Merged {len(new_validations)} new validations into Checkpoint '{checkpoint.name}'. Total validations now: {len(merged_validations)}.")
+        except Exception as e:
+            print(f"{self.error_msg_prefix} merging validations into Checkpoint: {e}")
+            raise RuntimeError() from e
+        return updated_checkpoint
 # %%

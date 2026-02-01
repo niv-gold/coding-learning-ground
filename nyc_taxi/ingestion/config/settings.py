@@ -178,7 +178,7 @@ class GXCheckpointSpec:
     checkpoint_name: str
     data_docs_site_name: str = "local_site"
     build_data_docs: bool = True
-    vd_spec: GXValidationSpec | List[GXValidationSpec] | None = None
+    vd_spec_list: GXValidationSpec | List[GXValidationSpec] | None = None
 
 @dataclass(frozen=True, slots=True)
 class GeneralConfig:

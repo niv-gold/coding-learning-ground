@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import great_expectations as gx
 from great_expectations.datasource.fluent import PandasS3Datasource
 from great_expectations.checkpoint import Checkpoint
+from great_expectations.core.batch import Batch
 from nyc_taxi.ingestion.config.settings import GXS3AssetSpec, GXValidationSpec, S3Config, GXCheckpointSpec, GeneralConfig
 from nyc_taxi.ingestion.infra.data_quality.gx_context_factory import GreatExpectationsContextFactory
 
@@ -83,7 +84,7 @@ class GreatExpectationsManager:
             raise RuntimeError() from e
 
     # 3) Ensure batch definition
-    def ensure_batch_definition(self, data_source_name: str, dc_asset: GXS3AssetSpec)-> list[Any]:
+    def ensure_asset_batche(self, data_source_name: str, dc_asset: GXS3AssetSpec)-> list[Batch]:
         """"
         Ensure batch definitions exist for the given data asset.
         Args:
@@ -102,7 +103,7 @@ class GreatExpectationsManager:
         return batches
 
     # 4) Ensure validation creation
-    def ensure_validation(self, vd_spec: GXValidationSpec, dc_asset: GXS3AssetSpec, ds_name: str) -> list[Any]:        
+    def ensure_validation(self, vd_spec: GXValidationSpec, dc_asset: GXS3AssetSpec, ds_name: str) -> list[dict]:        
         """"
         Ensure validation definitions exist for the given validation spec and data asset, then creating validators.
         Args:
@@ -114,17 +115,16 @@ class GreatExpectationsManager:
         """
         try:
             manager.ensure_s3_landing_suite(vd_spec.suite_name)
-            batches = manager.ensure_batch_definition(data_source_name=ds_name, dc_asset=dc_asset)
-            validating_definition = manager._factory.build_validation_definition_list(batch_list=batches, suite_name=vd_spec.suite_name)
-            validations = manager._factory.create_validations_from_definitions(validating_definition)
-            print(f"{self.info_msg_prefix} Ensured validation definition: {len(validations)} validators for validation ID '{vd_spec.validation_id}'")
+            batches = manager.ensure_asset_batche(data_source_name=ds_name, dc_asset=dc_asset)
+            validating_br_list = manager._factory.build_asset_validations_br_list(batch_list=batches, suite_name=vd_spec.suite_name)            
+            print(f"{self.info_msg_prefix} Ensured validation definition: {vd_spec.validation_id} for asset: {dc_asset.asset_name}")            
         except Exception as e:
             print(f"{self.error_msg_prefix} ensuring validation definition: {e}")
             raise RuntimeError() from e
-        return validations
+        return validating_br_list 
     
     # 5) Ensure checkpoint
-    def ensure_checkpoint(self, checkpoint_spec: GXCheckpointSpec, data_source_name: str) -> Checkpoint:
+    def ensure_checkpoint(self, checkpoint_spec: GXCheckpointSpec, validations: list[dict]) -> Checkpoint:
         """
         Ensure the checkpoint exists with specified actions.
         Args:
@@ -134,22 +134,36 @@ class GreatExpectationsManager:
             Checkpoint: The ensured checkpoint object.
         """
         try:
-            actions_list = self._factory._build_action_list(checkpoint_spec)
-            for vd in checkpoint_spec.vd_spec:
-                validations_list = manager._factory.get_validation_dictionary_list(
-                    data_source_name=data_source_name,
-                    asset_name=vd.asset_spec.asset_name,
-                    suite_name=vd.suite_name
-                    )            
-                checkpoint = self._factory.add_or_update_checkpoint(
-                    checkpoint_name=checkpoint_spec.checkpoint_name,
-                    asset_name=vd.asset_spec.asset_name,
-                    validations=validations_list,
-                    data_source_name=data_source_name,
-                    action_list=actions_list
-                )
-                print(f"{self.info_msg_prefix} Ensured Checkpoint '{checkpoint_spec.checkpoint_name}__{vd.asset_spec.asset_type} files'.")
+            actions_list = self._factory._build_action_list(checkpoint_spec)     
+            checkpoint = self._factory.add_or_update_checkpoint(
+                checkpoint_name=checkpoint_spec.checkpoint_name,
+                validations=validations,
+                action_list=actions_list
+            )
+            print(f"{self.info_msg_prefix} Ensured Checkpoint '{checkpoint_spec.checkpoint_name}'.")
             return checkpoint
+        #--------------------------------------------------------------------------------------------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------
+            # actions_list = self._factory._build_action_list(checkpoint_spec)
+            # all_validations = []
+            # for vd in checkpoint_spec.vd_spec_list:
+            #     validations_list = manager._factory.get_validation_dictionary_list(
+            #         data_source_name=data_source_name,
+            #         asset_name=vd.asset_spec.asset_name,
+            #         suite_name=vd.suite_name
+            #         )   
+            #     all_validations.extend(validations_list)         
+            #     checkpoint = self._factory.add_or_update_checkpoint(
+            #         checkpoint_name=checkpoint_spec.checkpoint_name,
+            #         asset_name=vd.asset_spec.asset_name,
+            #         validations=validations_list,
+            #         data_source_name=data_source_name,
+            #         action_list=actions_list
+            #     )
+            #     print(f"{self.info_msg_prefix} Ensured Checkpoint '{checkpoint_spec.checkpoint_name}__{vd.asset_spec.asset_type} files'.")
+            # return checkpoint
+
+
         except Exception as e:
             print(f"{self.error_msg_prefix} ensuring checkpoint: {e}")
             raise RuntimeError() from e
@@ -221,7 +235,7 @@ if __name__ == "__main__":
         checkpoint_name="s3_raw_checkpoint",
         data_docs_site_name="local_site",
         build_data_docs=True,
-        vd_spec = [vd_csv_spec, vd_parquet_spec]
+        vd_spec_list = [vd_csv_spec, vd_parquet_spec]
     )
 
     # Ensure S3 Datasource + Assets
@@ -231,16 +245,16 @@ if __name__ == "__main__":
     validating_landing_csv = manager.ensure_validation(vd_spec=vd_csv_spec, dc_asset=asset_spec_csv, ds_name=ds_s3_raw.name)
 
     # Parquet Validation Setup
-    validations = manager.ensure_validation(vd_spec=vd_parquet_spec, dc_asset=asset_spec_parquet, ds_name=ds_s3_raw.name)
-   
+    validating_landing_parquet = manager.ensure_validation(vd_spec=vd_parquet_spec, dc_asset=asset_spec_parquet, ds_name=ds_s3_raw.name)
+    
+    all_validations = []
+    all_validations.extend(validating_landing_csv)
+    all_validations.extend(validating_landing_parquet)
+    print('*** length of all_validations:', len(all_validations))
+
     # Ensure Checkpoint
-    checkpoint = manager.ensure_checkpoint(checkpoint_spec=checkp_spec_landing_data_in_s3, data_source_name=ds_s3_raw.name)
-
+    checkpoint = manager.ensure_checkpoint(checkpoint_spec=checkp_spec_landing_data_in_s3, validations=all_validations)
+    
     # Run Checkpoint
-    # result = manager.run_checkpoint(checkpoint)
-
-    print(type(validations), len(validations))
-    print(type(validations[0]))
-    print(validations[0].keys() if isinstance(validations[0], dict) else validations[0])
-    print("batch_request type:", type(validations[0]["batch_request"]) if isinstance(validations[0], dict) else None)
-
+    result = manager.run_checkpoint(checkpoint)
+    # print(result)
