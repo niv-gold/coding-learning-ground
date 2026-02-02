@@ -1,13 +1,11 @@
 # Configuration module for NYC Taxi ingestion system
 # Handles AWS S3 and Snowflake connection settings
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from nyc_taxi.utils import required_value, to_connector_kwarg_utils
 from pathlib import Path
 import os
-from typing import Optional, Dict, Any, List, Iterable
-from dotenv import load_dotenv  # only for test usage!!!
-from great_expectations.datasource.fluent import PandasS3Datasource
+from typing import  Dict, Any, List
 
 
 @dataclass
@@ -123,7 +121,7 @@ class GreatExpectationsConfig:
     @staticmethod
     def get_default_ge_root_dir() -> str:
         """Get default Great Expectations root directory path."""
-        return os.path.join(Path(__file__).resolve().parents[2].as_posix(), "great_expectations")
+        return os.path.join(Path(__file__).resolve().parents[2].as_posix(), "gx_1x")
 
     @classmethod
     def from_env(cls) -> "GreatExpectationsConfig":

@@ -60,7 +60,7 @@ class GreatExpectationsManager:
             print(f"{self.info_msg_prefix} Ensured S3 Datasource '{ds.name}' with Assets: '{data_asset_csv.name}', '{data_asset_parquet.name}'")
             return ds
         except Exception as e:
-            print(f"{self.error_msg_prefix}   ensuring S3 Datasource and Asset: {e}")
+            print(f"{self.error_msg_prefix} ensuring S3 Datasource and Asset: {e}")
             raise RuntimeError() from e
     
     # 2) Ensure suite
@@ -142,27 +142,6 @@ class GreatExpectationsManager:
             )
             print(f"{self.info_msg_prefix} Ensured Checkpoint '{checkpoint_spec.checkpoint_name}'.")
             return checkpoint
-        #--------------------------------------------------------------------------------------------------------------------------------------
-        #--------------------------------------------------------------------------------------------------------------------------------------
-            # actions_list = self._factory._build_action_list(checkpoint_spec)
-            # all_validations = []
-            # for vd in checkpoint_spec.vd_spec_list:
-            #     validations_list = manager._factory.get_validation_dictionary_list(
-            #         data_source_name=data_source_name,
-            #         asset_name=vd.asset_spec.asset_name,
-            #         suite_name=vd.suite_name
-            #         )   
-            #     all_validations.extend(validations_list)         
-            #     checkpoint = self._factory.add_or_update_checkpoint(
-            #         checkpoint_name=checkpoint_spec.checkpoint_name,
-            #         asset_name=vd.asset_spec.asset_name,
-            #         validations=validations_list,
-            #         data_source_name=data_source_name,
-            #         action_list=actions_list
-            #     )
-            #     print(f"{self.info_msg_prefix} Ensured Checkpoint '{checkpoint_spec.checkpoint_name}__{vd.asset_spec.asset_type} files'.")
-            # return checkpoint
-
 
         except Exception as e:
             print(f"{self.error_msg_prefix} ensuring checkpoint: {e}")
@@ -242,19 +221,38 @@ if __name__ == "__main__":
     ds_s3_raw = manager.ensure_s3_datasource_and_assets(s3_config, asset_spec_csv, asset_spec_parquet)
 
     # CSV Validation Setup
-    validating_landing_csv = manager.ensure_validation(vd_spec=vd_csv_spec, dc_asset=asset_spec_csv, ds_name=ds_s3_raw.name)
+    # validating_landing_csv = manager.ensure_validation(vd_spec=vd_csv_spec, dc_asset=asset_spec_csv, ds_name=ds_s3_raw.name)
 
     # Parquet Validation Setup
-    validating_landing_parquet = manager.ensure_validation(vd_spec=vd_parquet_spec, dc_asset=asset_spec_parquet, ds_name=ds_s3_raw.name)
+    # validating_landing_parquet = manager.ensure_validation(vd_spec=vd_parquet_spec, dc_asset=asset_spec_parquet, ds_name=ds_s3_raw.name)
     
-    all_validations = []
-    all_validations.extend(validating_landing_csv)
-    all_validations.extend(validating_landing_parquet)
-    print('*** length of all_validations:', len(all_validations))
+    # Merge all validations
+    # all_validations = manager._factory.merge_validations_list([validating_landing_csv, validating_landing_parquet])
 
     # Ensure Checkpoint
-    checkpoint = manager.ensure_checkpoint(checkpoint_spec=checkp_spec_landing_data_in_s3, validations=all_validations)
-    
+
+    # checkpoint = manager.ensure_checkpoint(checkpoint_spec=checkp_spec_landing_data_in_s3, validations=validating_landing_csv)
+    # print(checkpoint)
+
     # Run Checkpoint
-    result = manager.run_checkpoint(checkpoint)
-    # print(result)
+    # result = manager.run_checkpoint(checkpoint)
+    #   print(result)
+
+
+
+    # # 1) resolve batches through the asset (works for you)
+    # asset = ds_s3_raw.get_asset("raw_csv")
+
+    # br = asset.build_batch_request(
+    #     options={"file_name": "taxi_zone_lookup", "path": "raw/csv/taxi_zone_lookup.csv"}
+    # )
+    # batches = asset.get_batch_list_from_batch_request(br)  # list[Batch]
+    # print( type(br))
+
+    # # 2) build validator from batch_list (no tuples)
+    # validator = manager._factory._context.get_validator(
+    #     expectation_suite_name="landing_suite_csv",
+    #     batch_list=batches,
+    # )
+    # print(type(validator))
+    # # checkpoint.run(validator=validator)

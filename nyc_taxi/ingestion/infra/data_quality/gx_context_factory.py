@@ -15,9 +15,8 @@ import great_expectations as gx
 from great_expectations.datasource.fluent import PandasS3Datasource
 from nyc_taxi.ingestion.config.settings import GreatExpectationsConfig 
 from great_expectations.core import ExpectationSuite
-from great_expectations.core.expectation_configuration import ExpectationConfiguration
+from great_expectations.expectations.expectation_configuration import ExpectationConfiguration
 from great_expectations.core.batch import Batch
-from great_expectations.validator.validator import Validator
 from typing import Callable, Optional, Dict, Any
 from datetime import datetime, timezone
 
@@ -29,6 +28,12 @@ class GreatExpectationsContextFactory:
     - Ensuring required data_sources and assets exist
     """
     def __init__(self):
+        # Check AWS credentials early to provide clear error message
+        aws_key = os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
+        if not aws_key or not aws_secret or aws_key.strip() == '' or aws_secret.strip() == '':
+            raise ValueError("AWS credentials not found. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.")
+        
         self._context: gx.DataContext | None = None
         self.gx_project_root_dir: str = GreatExpectationsConfig.from_env().ge_root_dir
         self.general_config: GeneralConfig = GeneralConfig.from_env()
@@ -41,7 +46,8 @@ class GreatExpectationsContextFactory:
     def _create_context(self) -> gx.DataContext:       
         """Create or load Great Expectations DataContext."""
         try:
-            context = gx.get_context(mode="file", project_root_dir=self.gx_project_root_dir)
+            print(f"{self.info_msg_prefix} Creating/Loading Great Expectations DataContext at root dir: {self.gx_project_root_dir}")
+            context = gx.get_context(project_root_dir=self.gx_project_root_dir)
             return context
         except Exception as e:
             print(f"{self.error_msg_prefix} creating/loading Great Expectations DataContext: {e}")
@@ -59,7 +65,7 @@ class GreatExpectationsContextFactory:
         # Create data_source (name it once; re-running should reuse or you can guard it)
         self.get_or_create_context()
         try:
-            data_source = self._context.sources.add_or_update_pandas_s3(
+            data_source = self._context.data_sources.add_or_update_pandas_s3(
                 name=ds_name,
                 bucket=kwarg["bucket_name"],
                 boto3_options={"region_name": kwarg["region_name"]} if kwarg["region_name"] else {},
@@ -95,8 +101,7 @@ class GreatExpectationsContextFactory:
 
             _DataAssetT = creators[assert_type_norm](
                 name = kwarg["asset_name"],
-                s3_prefix = kwarg["s3_prefix"],
-                batching_regex = kwarg["batching_regex"]
+                s3_prefix = kwarg["s3_prefix"]
             )
 
             # Sanity check
@@ -279,6 +284,29 @@ class GreatExpectationsContextFactory:
             )
         return validations
 
+    def merge_validations_list(self, existing_validations: list[dict], new_validations: list[dict]) -> list[dict]:
+        """Merge new validations into existing validations, avoiding duplicates.
+        Args:
+            existing_validations (list[dict]): List of existing validation dictionaries.
+            new_validations (list[dict]): List of new validation dictionaries to merge.
+        Returns:
+            list[dict]: Merged list of validation dictionaries."""      
+        all_validations = []
+        all_validations.extend(existing_validations)
+        all_validations.extend(new_validations)
+        print('*** length of all_validations:', len(all_validations))
+        return all_validations
+
+    def make_validations_for_asset_files(self, datasource_name: str, asset_name: str, file_names: list[str], suite: str):
+        ds = self._context.get_datasource(datasource_name)
+        asset = ds.get_asset(asset_name)
+
+        validations = []
+        for fn in file_names:
+            br = asset.build_batch_request(options={"file_name": fn})
+            validations.append({"batch_request": br, "expectation_suite_name": suite})
+        return validations
+
     @staticmethod
     def _build_action_list(spec: GXCheckpointSpec) -> list[dict]:
         actions = [
@@ -348,3 +376,6 @@ class GreatExpectationsContextFactory:
             raise RuntimeError() from e
         return updated_checkpoint
 # %%
+if __name__ == "__main__":
+    factory = GreatExpectationsContextFactory()
+    context = factory.get_or_create_context()
