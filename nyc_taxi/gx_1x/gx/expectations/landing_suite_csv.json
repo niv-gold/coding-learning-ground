@@ -1,0 +1,42 @@
+{
+  "expectations": [
+    {
+      "id": "3b3ba4be-15e3-49b0-ba42-e5dccd76a260",
+      "kwargs": {
+        "min_value": 1
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_table_row_count_to_be_between"
+    },
+    {
+      "id": "7ddf4b87-e26a-458b-aa75-31fc618e8df4",
+      "kwargs": {
+        "column": "id"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_to_exist"
+    },
+    {
+      "id": "891a81ae-8853-412f-933e-6775dd0e1493",
+      "kwargs": {
+        "column": "id"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_not_be_null"
+    }
+  ],
+  "id": "76974e20-53c6-4f22-a88b-fd6968eff52f",
+  "meta": {
+    "domain": "landing",
+    "great_expectations_version": "1.11.3",
+    "layer": "bronze",
+    "managed_by": "code",
+    "suite_version": "v1",
+    "updated_at_utc": "2026-02-04T21:19:26.889430+00:00"
+  },
+  "name": "landing_suite_csv",
+  "notes": null
+}

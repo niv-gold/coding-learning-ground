@@ -84,15 +84,35 @@ fluent_datasources:
   s3_nyc-taxi-dev_raw:
     type: pandas_s3
     id: 55c6cdb7-aae3-445c-a785-9a3102d7944f
+    bucket: nyc-taxi-dev
+    boto3_options:
+      region_name: us-east-1
+  s3_nyc_taxi_dev.raw:
+    type: pandas_s3
+    id: fbb55966-e836-41ab-8966-5ff87e3fd608
+    bucket: nyc_taxi_dev
+    boto3_options:
+      region_name: us-east-1
+  s3_nyc-taxi-dev.raw:
+    type: pandas_s3
+    id: 54e29fbc-eec6-4a5d-b210-c625e96e6614
     assets:
       raw_csv:
         type: csv
-        id: e24f29cf-6dc1-4da1-be53-f6fca988e2b3
+        id: e31ac923-3fa0-43fe-ab3b-a88a6eca9821
+        batch_definitions:
+          raw_csv_bd:
+            id: 5370d9f6-64ba-42e2-bd78-70563f500511
+            partitioner:
         connect_options:
           s3_prefix: raw/csv/
       raw_parquet:
         type: parquet
-        id: 41fba115-7f9e-4433-b968-0ea6a926d830
+        id: 089473c4-7dad-4e8c-be53-fed7ce88df25
+        batch_definitions:
+          raw_parquet_bd:
+            id: 6562a233-7c2a-4f7f-9f24-e656ff42ff0e
+            partitioner:
         connect_options:
           s3_prefix: raw/parquet/
     bucket: nyc-taxi-dev

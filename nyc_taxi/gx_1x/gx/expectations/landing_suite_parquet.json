@@ -1,0 +1,42 @@
+{
+  "expectations": [
+    {
+      "id": "74ee4998-557f-48a7-a0ae-7cd06576d010",
+      "kwargs": {
+        "min_value": 1
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_table_row_count_to_be_between"
+    },
+    {
+      "id": "11237a51-e2e3-451e-a561-35bf449211a2",
+      "kwargs": {
+        "column": "id"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_to_exist"
+    },
+    {
+      "id": "b05fd919-ca0f-4d4b-be3d-71c949392217",
+      "kwargs": {
+        "column": "id"
+      },
+      "meta": {},
+      "severity": "critical",
+      "type": "expect_column_values_to_not_be_null"
+    }
+  ],
+  "id": "b6e38174-0ab2-4e62-88e4-c5523c9e62b7",
+  "meta": {
+    "domain": "landing",
+    "great_expectations_version": "1.11.3",
+    "layer": "bronze",
+    "managed_by": "code",
+    "suite_version": "v1",
+    "updated_at_utc": "2026-02-04T21:19:26.941755+00:00"
+  },
+  "name": "landing_suite_parquet",
+  "notes": null
+}

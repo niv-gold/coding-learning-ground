@@ -135,8 +135,8 @@ class GXS3AssetSpec():
     s3conf: S3Config 
     asset_name: str
     s3_prefix_relative: str  # Relative S3 folder (e.g., 'csv/', 'parquet/')
-    batching_regex: str  # e.g. r"(?P<file_name>.*)\.csv"
     asset_type: str
+    batch_definition_name: str | None = None
 
     @property
     def bucket(self) -> str:
@@ -159,7 +159,6 @@ class GXS3AssetSpec():
             "region": self.region,  
             "s3_prefix": self.s3_prefix,
             "asset_name": self.asset_name,            
-            "batching_regex": self.batching_regex,
             "asset_type": self.asset_type
         }
 
