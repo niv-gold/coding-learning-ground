@@ -1,7 +1,7 @@
 {
   "expectations": [
     {
-      "id": "3b3ba4be-15e3-49b0-ba42-e5dccd76a260",
+      "id": "01e17fef-1f77-4974-835a-231545b37ed2",
       "kwargs": {
         "min_value": 1
       },
@@ -10,7 +10,7 @@
       "type": "expect_table_row_count_to_be_between"
     },
     {
-      "id": "7ddf4b87-e26a-458b-aa75-31fc618e8df4",
+      "id": "ad310309-fbd7-41b7-bafd-94a7f2fa31d2",
       "kwargs": {
         "column": "id"
       },
@@ -19,7 +19,7 @@
       "type": "expect_column_to_exist"
     },
     {
-      "id": "891a81ae-8853-412f-933e-6775dd0e1493",
+      "id": "48d8089d-b9c9-4558-8064-63a20e31341a",
       "kwargs": {
         "column": "id"
       },
@@ -35,7 +35,7 @@
     "layer": "bronze",
     "managed_by": "code",
     "suite_version": "v1",
-    "updated_at_utc": "2026-02-04T21:19:26.889430+00:00"
+    "updated_at_utc": "2026-02-05T23:00:05.914665+00:00"
   },
   "name": "landing_suite_csv",
   "notes": null

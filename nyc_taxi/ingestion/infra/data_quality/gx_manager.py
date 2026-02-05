@@ -1,31 +1,19 @@
 from __future__ import annotations
 import sys
 from pathlib import Path
+from unittest import result
 if __name__ == "__main__":
     PROJECT_ROOT = Path(__file__).resolve().parents[4]
     sys.path.insert(0, str(PROJECT_ROOT))
     print("Project root added to sys.path[0]:", sys.path[0])
 
-from typing import Any
-from great_expectations.core import ExpectationSuite
 from dotenv import load_dotenv
-import great_expectations as gx
 from great_expectations.datasource.fluent import PandasS3Datasource
 from great_expectations.checkpoint import Checkpoint
-from great_expectations.core.batch import Batch
 from nyc_taxi.ingestion.config.settings import GXS3AssetSpec, GXValidationSpec, S3Config, GXCheckpointSpec, GeneralConfig
 from nyc_taxi.ingestion.infra.data_quality.gx_context_factory import GreatExpectationsContextFactory
 
 class GreatExpectationsManager:
-    """
-    Owns the "end-to-end" GX workflow:
-    - Ensure datasource + asset
-    - Ensure suite + expectations
-    - Ensure batch definition
-    - Ensure validation definition
-    - Ensure checkpoint (+ actions)
-    - Run checkpoint (suitable for Airflow)
-    """
     def __init__(self, context_factory: GreatExpectationsContextFactory):
         self._factory = context_factory
         self.general_config: GeneralConfig = GeneralConfig.from_env()
@@ -34,7 +22,14 @@ class GreatExpectationsManager:
         self._context = self._factory.get_or_create_context()
     
     
-    def ensure_s3_datasource(self, s3conf: S3Config, )-> None:
+    def ensure_s3_datasource(self, s3conf: S3Config, )-> PandasS3Datasource:
+        """
+        Ensure the S3 datasource exists in the Great Expectations context.
+        Args:
+            s3conf (S3Config): Configuration for the S3 datasource.
+        Returns:
+            PandasS3Datasource: The ensured S3 datasource object.
+        """
         try:
             # -------------------------------------------------------------------------------------------------------------------------------
             # Datasource
@@ -46,35 +41,59 @@ class GreatExpectationsManager:
             # refetch datasource (avoid stale reference)
             # -------------------------------------------------------------------------------------------------------------------------------
             ds = self._context.data_sources.get(ds_name) 
-            return ds
-
-
-            # print(f"{self.info_msg_prefix} Ensured s3 Datasource '{ds.name}' with Assets: '{data_asset_csv.name}', '{data_asset_parquet.name}'")
+            print(f"{self.info_msg_prefix} Datasource '{ds.name}' ensured.")
+            return ds            
         except Exception as e:
-            print(f"{self.error_msg_prefix} ensuring s3 Datasource: {e}")
+            print(f"{self.error_msg_prefix} Datasource creation failed: {e}")
             raise RuntimeError() from e
     
 
-    def ensure_s3_raw_asset(self, datasource: PandasS3Datasource, dc_asset_csv: GXS3AssetSpec, dc_asset_parquet: GXS3AssetSpec) -> ExpectationSuite:
-        #-------------------------------------------------------------------------------------------------------------------------------
-        # Asset: CSV
-        #-------------------------------------------------------------------------------------------------------------------------------
-        self._factory.get_or_create_asset( data_source = datasource, asset_spec = dc_asset_csv)
-        
-        #-------------------------------------------------------------------------------------------------------------------------------
-        # Asset: Parquet
-        #-------------------------------------------------------------------------------------------------------------------------------
-        self._factory.get_or_create_asset( data_source = datasource, asset_spec = dc_asset_parquet)
+    def ensure_s3_raw_asset(self, datasource: PandasS3Datasource, dc_asset_csv: GXS3AssetSpec, dc_asset_parquet: GXS3AssetSpec) -> None:
+        """
+        Ensure the raw data assets (CSV and Parquet) exist in the specified data source.
+        Args:
+            datasource (PandasS3Datasource): The data source to add the assets to.
+            dc_asset_csv (GXS3AssetSpec): The specification for the CSV data asset.
+            dc_asset_parquet (GXS3AssetSpec): The specification for the Parquet data asset.
+        Returns:
+            None
+        """
+        try:
+            #-------------------------------------------------------------------------------------------------------------------------------
+            # Asset: CSV
+            #-------------------------------------------------------------------------------------------------------------------------------
+            self._factory.build_asset( data_source = datasource, asset_spec = dc_asset_csv)
+            
+            #-------------------------------------------------------------------------------------------------------------------------------
+            # Asset: Parquet
+            #-------------------------------------------------------------------------------------------------------------------------------
+            self._factory.build_asset( data_source = datasource, asset_spec = dc_asset_parquet)
+            print(f"{self.info_msg_prefix} Assets '{dc_asset_csv.asset_name}', '{dc_asset_parquet.asset_name}' in Datasource '{datasource.name}' ensured.")
+        except Exception as e:
+            print(f"{self.error_msg_prefix} Assets creation failed: {e}")
+            raise RuntimeError() from e
         
 
     def ensure_s3_raw_assets_batch_definition(self, data_source: PandasS3Datasource, dc_asset: GXS3AssetSpec) -> None:
+        """
+        Ensure the batch definition exists for the given data asset in the specified data source.
+        Args:
+            data_source (PandasS3Datasource): The data source containing the asset.
+            dc_asset (GXS3AssetSpec): The specification of the data asset.
+        Returns:
+            None
+        """
         #-------------------------------------------------------------------------------------------------------------------------------
         # Batch Definition: CSV
         #-------------------------------------------------------------------------------------------------------------------------------
-        self._factory.get_or_create_asset_batch_definition( data_source = data_source, asset_spec = dc_asset)
+        try:
+            self._factory.build_asset_batch_definition( data_source = data_source, asset_spec = dc_asset)
+        except Exception as e:
+            print(f"{self.error_msg_prefix} Batch Definition failed for asset '{dc_asset.asset_name}': {e}")
+            raise RuntimeError() from e
 
 
-    def ensure_s3_raw_suites(self, suite_name: str) -> ExpectationSuite:
+    def ensure_s3_raw_suites(self, suite_name: str) -> None:
         """
         Ensure the landing Expectation Suite exists with predefined expectations and metadata.
         Args:
@@ -86,14 +105,15 @@ class GreatExpectationsManager:
         try:
             # expectations = self._factory.build_landing_expectations()
             meta = self._factory.build_suite_meta(layer="bronze", managed_by="code", suite_version="v1", extra={"domain": "landing"})
-            suite = self._factory.get_or_create_suite(suite_name, meta=meta)
-            return suite
+            self._factory.build_suite(suite_name, meta=meta)
+            print(f"{self.info_msg_prefix} Suite '{suite_name}' ensured.")
+            return None
         except Exception as e:
             print(f"{self.error_msg_prefix} Suite creation failed: {e}")
             raise RuntimeError() from e
 
 
-    def ensure_s3_raw_validation_Definition(self, vd_spec: GXValidationSpec, dc_asset: GXS3AssetSpec, data_source: PandasS3Datasource) -> list[dict]:        
+    def ensure_s3_raw_validation_Definition(self, vd_spec: GXValidationSpec, data_source: PandasS3Datasource) -> list[dict]:        
         """"
         Ensure validation definitions exist for the given validation spec and data asset, then creating validators.
         Args:
@@ -104,65 +124,68 @@ class GreatExpectationsManager:
             list[Any]: List of created validators for the validation.      
         """
         try: 
-            validator = manager._factory.build_Validation_Definition(
-                data_source_name=data_source.name,
-                asset_name=dc_asset.asset_name,
+            manager._factory.build_Validation_Definition(
+                data_source=data_source,
+                asset_name=vd_spec.asset_spec.asset_name,
                 suite_name=vd_spec.suite_name
             )            
             # validating_br_list = manager._factory.build_validator_validation_br_list(validator=validator)      
-            print(f"{self.info_msg_prefix} Ensured validation definition: {vd_spec.validation_id} for asset: {dc_asset.asset_name}")         
+            print(f"{self.info_msg_prefix} Validation Definition ensured.")         
         except Exception as e:
-            print(f"{self.error_msg_prefix} ensuring validation definition: {e}")
+            print(f"{self.error_msg_prefix} Validation Definition failed: {e}")
             raise RuntimeError() from e
-        return validator # validating_br_list 
+        return None
     
 
-    def ensure_checkpoint(self, ds_name: str, checkpoint_spec: GXCheckpointSpec, vd_csv_spec: GXValidationSpec, vd_parquet_spec: GXValidationSpec) -> Checkpoint:
+    def ensure_checkpoint(self, cp_spec: GXCheckpointSpec) -> Checkpoint:
         """
-        Ensure the checkpoint exists with specified actions.
+        Ensure the checkpoint exists with the specified validations and actions.
         Args:
-            checkpoint_spec (GXCheckpointSpec): Specification of the checkpoint.
-            action_list (list[dict], optional): List of action dictionaries to include in the checkpoint.
+            cp_spec (GXCheckpointSpec): Specification of the checkpoint.
         Returns:
             Checkpoint: The ensured checkpoint object.
         """
         try:
-            # actions_list = self._factory._build_action_list(checkpoint_spec)     
-            # checkpoint = self._factory.add_or_update_checkpoint(
-            #     checkpoint_name=checkpoint_spec.checkpoint_name,
-            #     validations=validations,
-            #     action_list=actions_list
-            # )
-            manager._factory.upsert_checkpoint_for_csv_and_parquet(
-                checkpoint_name=checkpoint_spec.checkpoint_name,
-                data_source_name=ds_name,
-                csv_asset_name=vd_csv_spec.asset_spec.asset_name,
-                csv_suite_name=vd_csv_spec.suite_name,
-                parquet_asset_name=vd_parquet_spec.asset_spec.asset_name,
-                parquet_suite_name=vd_parquet_spec.suite_name
-            )
-            print(f"{self.info_msg_prefix} Ensured Checkpoint '{checkpoint_spec.checkpoint_name}'.")
+            # Actions list - a default set of actions.
+            # TBD: Action for GX 1.11.3 needed to be figured out.
+            action = []
+            
+            # Checkpoint Definition list of all validations united.
+            vd_names = self._factory.get_all_validation_definition_names()            
+
+            # Checkpoint
+            checkpoint = self._factory.build_or_update_checkpoint(
+                cp_name=cp_spec.checkpoint_name,
+                vd_names=vd_names,
+                action_list=action
+            )                        
+            print(f"{self.info_msg_prefix} Checkpoint '{cp_spec.checkpoint_name}' ensured.")            
             return checkpoint
 
         except Exception as e:
-            print(f"{self.error_msg_prefix} ensuring checkpoint: {e}")
-            raise RuntimeError() from e
-    
-    def run_checkpoint(self, checkpoint: Checkpoint) -> gx.checkpoint.checkpoint_result.CheckpointResult:
+            print(f"{self.error_msg_prefix} Checkpoint ensuring failed: {e}")
+            raise RuntimeError() from e    
+
+
+    def ensure_run_checkpoint_and_build_docs(self, checkpoint: Checkpoint) -> None:
         """
-        Run the specified checkpoint and return the result.
+        Ensure the checkpoint runs and data docs are built.
         Args:
-            checkpoint (Checkpoint): The checkpoint to run. 
+            checkpoint (Checkpoint): The checkpoint to run.
         Returns:
-            gx.checkpoint.checkpoint_result.CheckpointResult: The result of the checkpoint run.
-        """
+            None
+        """        
         try:
-            result = checkpoint.run()
-            print(f"{self.info_msg_prefix} Checkpoint '{checkpoint.name}' run completed.")
-            return result
+            checkpoint.run()
+            self._factory._context.build_data_docs()
+            site_url = self._factory._context.get_docs_sites_urls()[0]['site_url']
+            print(f"{self.info_msg_prefix} Data docs site URL: {site_url}")
+            return None
         except Exception as e:
-            print(f"{self.error_msg_prefix} running checkpoint: {e}")
-            raise RuntimeError() from e
+            print(f"{self.error_msg_prefix} Checkpoint Run or Docs build failed: {e}")
+            raise RuntimeError() from e   
+
+        
 
 #%%
     
@@ -211,7 +234,7 @@ if __name__ == "__main__":
     ) 
 
     # Checkpoint Spec
-    checkp_spec_landing_data_in_s3 = GXCheckpointSpec(
+    cp_spec_s3_raw_ingest = GXCheckpointSpec(
         checkpoint_name="s3_raw_checkpoint",
         data_docs_site_name="local_site",
         build_data_docs=True,
@@ -238,6 +261,12 @@ if __name__ == "__main__":
 
     # Ensure Validations:
     # CSV
-    manager.ensure_s3_raw_validation_Definition(vd_spec=vd_csv_spec, dc_asset=asset_spec_csv, data_source=ds_s3_raw)
+    manager.ensure_s3_raw_validation_Definition(vd_spec=vd_csv_spec, data_source=ds_s3_raw)
     # Parquet
-    # manager.ensure_s3_raw_validation_Definition(vd_spec=vd_parquet_spec, dc_asset=asset_spec_parquet, data_source=ds_s3_raw)
+    manager.ensure_s3_raw_validation_Definition(vd_spec=vd_parquet_spec, data_source=ds_s3_raw)
+
+    # Ensure Checkpoint
+    checkpoint = manager.ensure_checkpoint(cp_spec=cp_spec_s3_raw_ingest)
+
+    # Ensure Run Checkpoint and docs build
+    manager.ensure_run_checkpoint_and_build_docs(checkpoint=checkpoint)

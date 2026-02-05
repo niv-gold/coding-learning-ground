@@ -1,7 +1,7 @@
 {
   "expectations": [
     {
-      "id": "74ee4998-557f-48a7-a0ae-7cd06576d010",
+      "id": "6478ba23-9615-482d-9041-cff6e0943a44",
       "kwargs": {
         "min_value": 1
       },
@@ -10,7 +10,7 @@
       "type": "expect_table_row_count_to_be_between"
     },
     {
-      "id": "11237a51-e2e3-451e-a561-35bf449211a2",
+      "id": "3cc92970-4d1a-4d5e-b1c8-1d312b330b66",
       "kwargs": {
         "column": "id"
       },
@@ -19,7 +19,7 @@
       "type": "expect_column_to_exist"
     },
     {
-      "id": "b05fd919-ca0f-4d4b-be3d-71c949392217",
+      "id": "a07e0fdf-5a6c-41d8-9277-7177b798733d",
       "kwargs": {
         "column": "id"
       },
@@ -35,7 +35,7 @@
     "layer": "bronze",
     "managed_by": "code",
     "suite_version": "v1",
-    "updated_at_utc": "2026-02-04T21:19:26.941755+00:00"
+    "updated_at_utc": "2026-02-05T23:00:05.963223+00:00"
   },
   "name": "landing_suite_parquet",
   "notes": null

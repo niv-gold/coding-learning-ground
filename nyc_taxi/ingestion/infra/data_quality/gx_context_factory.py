@@ -1,35 +1,24 @@
-#%%
 from __future__ import annotations
-from multiprocessing import context
 import sys
 from pathlib import Path
-import os
-
-from traitlets import Any, List
 if __name__ == "__main__":
     PROJECT_ROOT = Path(__file__).resolve().parents[4]
     sys.path.insert(0, str(PROJECT_ROOT))
     print("Project root added to sys.path[0]:", sys.path[0])
 
-from nyc_taxi.ingestion.config.settings import GXS3AssetSpec, GreatExpectationsConfig, GXCheckpointSpec, GeneralConfig, S3Config
+import os
+from traitlets import Any, List
+from nyc_taxi.ingestion.config.settings import GXS3AssetSpec, GreatExpectationsConfig, GeneralConfig, S3Config
 import great_expectations as gx
 from great_expectations.datasource.fluent import PandasS3Datasource
 from nyc_taxi.ingestion.config.settings import GreatExpectationsConfig 
 from great_expectations.core import ExpectationSuite
-from great_expectations.expectations.expectation_configuration import ExpectationConfiguration
-from great_expectations.core.batch import Batch
+from great_expectations.checkpoint import UpdateDataDocsAction
 from typing import Callable, Optional, Dict, Any
 from datetime import datetime, timezone
 
-#%%
 class GreatExpectationsContextFactory:
-    """
-    Responsible ONLY for:
-    - Creating / loading the GX File Data Context
-    - Ensuring required data_sources and assets exist
-    """
-    def __init__(self):
-        # Check AWS credentials early to provide clear error message
+    def __init__(self):        
         aws_key = os.getenv('AWS_ACCESS_KEY_ID')
         aws_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
         if not aws_key or not aws_secret or aws_key.strip() == '' or aws_secret.strip() == '':
@@ -41,10 +30,7 @@ class GreatExpectationsContextFactory:
         self.info_msg_prefix: str = self.general_config.info_msg_prefix
         self.error_msg_prefix: str = self.general_config.error_msg_prefix
 
-    # ---------------------------------------------------------------------------------------
-    # Context, data_source building blocks
-    # ---------------------------------------------------------------------------------------
-    
+
     def _create_context(self) -> gx.DataContext:       
         """Create or load Great Expectations DataContext."""
         try:
@@ -54,6 +40,7 @@ class GreatExpectationsContextFactory:
         except Exception as e:
             print(f"{self.error_msg_prefix} creating/loading Great Expectations DataContext: {e}")
             raise ConnectionError(f"{self.error_msg_prefix} Failed to create/load GX DataContext.") from e
+        
 
     def get_or_create_context(self) -> gx.DataContext | None:
         """Get the Great Expectations Data_Context."""
@@ -61,6 +48,7 @@ class GreatExpectationsContextFactory:
             self._context = self._create_context()
         print(f"{self.info_msg_prefix} Data_Context created!")
         return self._context 
+    
     
     def get_or_create_datasource_s3(self, ds_name: str, s3conf: S3Config )-> PandasS3Datasource:
         """Get or create a Pandas S3 Asset in the GX context."""      
@@ -78,7 +66,7 @@ class GreatExpectationsContextFactory:
             raise ConnectionError(f"{self.error_msg_prefix} Failed to create GX Pandas S3 data_source.") from e
             
     
-    def get_or_create_asset(self, data_source: PandasS3Datasource, asset_spec: GXS3AssetSpec) -> Any:
+    def build_asset(self, data_source: PandasS3Datasource, asset_spec: GXS3AssetSpec) -> Any:
         """Ensure an asset exists in the specified data_source.
         Args:
             data_source (PandasS3Datasource): The data_source to check/add the asset to.
@@ -133,10 +121,7 @@ class GreatExpectationsContextFactory:
                 s3_prefix=asset_spec.s3_prefix,
             )
 
-            # # 3) Add batch definition (in-memory)
-            # asset.add_batch_definition(name=f"{asset.name}_bd")
-
-            # 4) Commit datasource definition (typed upsert)
+            # Commit datasource definition (typed upsert)
             self._context.data_sources.add_or_update_pandas_s3(
                 name=data_source.name,
                 bucket=asset_spec.s3conf.bucket_name,
@@ -147,7 +132,7 @@ class GreatExpectationsContextFactory:
             ds = self._context.data_sources.get(data_source.name)
             print(f"{self.info_msg_prefix} Assets commited in ds: {[a.name for a in ds.assets]}")
 
-            # 5) Re-fetch asset (avoid stale reference)
+            # Re-fetch asset (avoid stale reference)
             ds = self._context.data_sources.get(data_source.name)
             return asset
 
@@ -155,7 +140,7 @@ class GreatExpectationsContextFactory:
             print(f"{self.error_msg_prefix} Asset creation failed: {e}")
             raise RuntimeError() from e
 
-    def get_or_create_asset_batch_definition(self, data_source: PandasS3Datasource, asset_spec: GXS3AssetSpec) -> Any:
+    def build_asset_batch_definition(self, data_source: PandasS3Datasource, asset_spec: GXS3AssetSpec) -> Any:
         try:
             bd_name = asset_spec.batch_definition_name or f"{asset_spec.asset_name}_bd"
             data_source = self._context.data_sources.get(data_source.name)
@@ -195,7 +180,7 @@ class GreatExpectationsContextFactory:
             print(f"{self.error_msg_prefix} Batch Definition creation or retrieval failed: {e}")
             raise RuntimeError() from e
    
-    def get_or_create_suite(self, suite_name: str, meta: Dict[str, Any]) -> ExpectationSuite:
+    def build_suite(self, suite_name: str, meta: Dict[str, Any]) -> ExpectationSuite:
         """
         Get or create an Expectation Suite for landing data with predefined expectations.
         Args:
@@ -204,8 +189,6 @@ class GreatExpectationsContextFactory:
         Returns:
             ExpectationSuite: The existing or newly created Expectation Suite.
         """
-
-        # Get or create suite
         try:
             suite = self._context.suites.get(name=suite_name)
             print(f"{self.info_msg_prefix} Suite '{suite_name}' found!")
@@ -298,294 +281,104 @@ class GreatExpectationsContextFactory:
             # Get suite (Expectation Suite)
             suite = self._context.suites.get(name=suite_name)
             if suite is None:
-                raise ValueError(f" Expectation Suite '{suite_name}' not found in context.")
+                raise ValueError(f" Expectation Suite '{suite_name}' not found.")
 
             # Pick an existing BatchDefinition from the asset (required for Validator)
             if not getattr(asset, "batch_definitions", None):
                 raise RuntimeError(f"No batch_definitions found on asset '{asset_name}'.")
+            
+            #TBD - Multiple batch definitions require more complex logic to pick the right one:
+            if len(asset.batch_definitions) > 1:
+                print(f"{self.info_msg_prefix} Warning: Batch Definitions on asset '{asset_name}' has Multiple values,\
+                      that not supportet at the moment. \
+                      We will Use the first value.")
+            
+            # Use the first batch definition for simplicity
             bd = asset.batch_definitions[0]
+            vd_name = f"{asset_name}__{suite_name}"
             # Build Validator
-            validator = gx.validator.validator.Validator(
+            validator_definition = gx.core.validation_definition.ValidationDefinition(
+                name=vd_name,
                 data=bd,
                 suite=suite,
-                data_context=self._context,
             )
-
-            print(f"{self.info_msg_prefix} Validator Definition built for Asset '{asset_name}' in Datasource '{data_source.name}' with Suite '{suite_name}'.")           
+            validator_definition = self._context.validation_definitions.add_or_update(validation=validator_definition)
+            print(f"{self.info_msg_prefix} Validator Definition '{vd_name}' built and persisted for Asset: '{asset_name}' and Suite: '{suite_name}'.")           
             
-            return validator
+            return validator_definition
         except Exception as e:
             print(f"{self.error_msg_prefix} Validator Definition building failed: {e}")
             raise RuntimeError() from e
-
-    # def ensure_asset_has_batch_definition(self, data_source_name: str, asset_name: str):
-    #     """ Ensure the specified asset has at least one batch definition.
-    #     If no batch definitions exist, add a default "whole asset" batch definition.
-    #     Args:
-    #         data_source_name (str): The name of the data source containing the asset.
-    #         asset_name (str): The name of the asset to check.
-    #     Returns:
-    #         The asset with ensured batch definitions.
-    #     """
-    #     datasource = self._context.data_sources.get(data_source_name)
-    #     if datasource is None:
-    #         raise ValueError(f"datasource '{data_source_name}' not found.")
-
-    #     asset = datasource.get_asset(asset_name)
-
-    #     # if no batch definitions exist, add one
-    #     if not asset.batch_definitions:
-    #         # pick the simplest "whole asset" definition (works for many file-based assets)
-    #         if hasattr(asset, "add_batch_definition_whole_asset"):
-    #             asset.add_batch_definition_whole_asset(f"{asset_name}_whole_asset")
-    #         else:
-    #             # fallback: show what exists so you know what to call
-    #             methods = [m for m in dir(asset) if m.startswith("add_batch_definition")]
-    #             raise RuntimeError(
-    #                 f"No batch definitions and no add_batch_definition_whole_asset() on asset '{asset_name}'. "
-    #                 f"Available methods: {methods}"
-    #             )
-
-    #         # persist datasource updates
-    #         self._context.data_sources.add_or_update(datasource=datasource)
-
-    #     return asset
-
-    # def get_asset_batches(self, data_source_name: str, asset_name: str, asset_type: str) -> List[Batch]:
-    #     """ Get list of Batch objects for the given asset in the specified data source.
-    #     Args:
-    #         data_source_name (str): The name of the data source containing the asset.
-    #         asset_name (str): The name of the asset to retrieve batches for.
-    #         asset_type (str): The type of the asset (e.g., 'csv', 'parquet').
-    #     Returns:
-    #         List[Batch]: List of Batch objects for the asset.
-    #     """ 
-    #     try:
-    #         datasource = self._context.data_sources.get(data_source_name)
-    #         if datasource is None:
-    #             raise ValueError(f"datasource '{data_source_name}' not found.")
-
-    #         asset = datasource.get_asset(asset_name)
-    #         if asset is None:
-    #             raise ValueError(f"asset '{asset_name}' not found in datasource '{data_source_name}'.")
-
-    #         # If none exist, create a path-based batch definition (1 batch per file)
-    #         if not asset.batch_definitions:
-    #             if hasattr(asset, "add_batch_definition_path"):
-    #                 asset.add_batch_definition_path(name=f"{asset_name}_by_path", path="path",)
-    #             else:
-    #                 methods = [m for m in dir(asset) if m.startswith("add_batch_definition")]
-    #                 raise RuntimeError(
-    #                     f"Asset '{asset_name}' has no batch definitions and no add_batch_definition_path(). "
-    #                     f"Available methods: {methods}"
-    #                 )
-
-    #             # Persist the datasource update (important)
-    #             self._context.data_sources.add_or_update(datasource=datasource)
-
-    #         return asset
-    #     except Exception as e:
-    #         print(f"{self.error_msg_prefix} retrieving batches: {e}")
-    #         raise RuntimeError() from e
-
-    # def _get_batches_request_list(self, data_source_name: str, asset_name: str) -> list[Any]:
-    #     """ Get batch request list for the given asset in the specified data source.
-    #     Args:
-    #         data_source_name (str): The name of the data source containing the asset.
-    #         asset_name (str): The name of the asset to retrieve batches for.
-    #     Returns:
-    #         list[Any]: List of batch requests for the asset."""
-    #     datasource = self._context.data_sources.get(data_source_name)
-    #     if datasource is None:
-    #         raise ValueError(f"datasource '{data_source_name}' not found.")
-    #     if not asset_name or not asset_name.strip():
-    #         raise ValueError("asset_name must be a non-empty string.")
-            
-    #     try:
-    #         _DataAssetT = datasource.get_asset(asset_name)
-    #         batch_request_all = _DataAssetT.build_batch_request()
-    #     except Exception as e:
-    #         print(f"{self.error_msg_prefix} retrieving batches: {e}")
-    #         raise RuntimeError() from e 
-    #     return batch_request_all
     
-    # def build_asset_validations_br_list(self, batch_list: list[Batch], suite_name: str ) -> list[dict]:
-    #     """ Build a list of validation dictionaries from a list of Batch objects.
-    #     Args:
-    #         batch_list (list[Any]): List of Batch objects.
-    #         suite_name (str): Name of the expectation suite to use."""
-    #     print(f"{self.info_msg_prefix} Building validations for suite '{suite_name}' with {len(batch_list)} batches:")
-        
-    #     validations = []
-    #     for i, batch in enumerate(batch_list, start=1):
-    #         validation = {
-    #             "batch_request": batch.batch_request,
-    #             "expectation_suite_name": suite_name,
-    #         }
-    #         validations.append(validation)
-
-    #         options = getattr(batch.batch_definition, "batch_identifiers", {}) or {}
-    #         file_label = options.get("file_name", "<unknown>")
-
-    #         print(
-    #             f"  Validation {i}: "
-    #             f"suite='{suite_name}', batch='{file_label}'"
-    #         )
-    #     return validations
-
-    # def merge_validations_list(self, existing_validations: list[dict], new_validations: list[dict]) -> list[dict]:
-    #     """Merge new validations into existing validations, avoiding duplicates.
-    #     Args:
-    #         existing_validations (list[dict]): List of existing validation dictionaries.
-    #         new_validations (list[dict]): List of new validation dictionaries to merge.
-    #     Returns:
-    #         list[dict]: Merged list of validation dictionaries."""      
-    #     all_validations = []
-    #     all_validations.extend(existing_validations)
-    #     all_validations.extend(new_validations)
-    #     print('*** length of all_validations:', len(all_validations))
-    #     return all_validations
-
-    # def make_validations_for_asset_files(self, datasource_name: str, asset_name: str, file_names: list[str], suite: str):
-    #     ds = self._context.data_sources.get(datasource_name)
-    #     asset = ds.get_asset(asset_name)
-
-    #     validations = []
-    #     for fn in file_names:
-    #         br = asset.build_batch_request(options={"file_name": fn})
-    #         validations.append({"batch_request": br, "expectation_suite_name": suite})
-    #     return validations
-
-    @staticmethod
-    def _build_action_list(spec: GXCheckpointSpec) -> list[dict]:
-        actions = [
-            {
-                "name": "store_validation_result",
-                "action": {
-                    "class_name": "StoreValidationResultAction",
-                    "module_name": "great_expectations.checkpoint.actions",
-                },
-            }
-        ]
-
-        # update data docs if specified
-        if spec.build_data_docs:
-            actions.append(
-                {
-                    "name": "update_data_docs",
-                    "action": {
-                        "class_name": "UpdateDataDocsAction",
-                        "module_name": "great_expectations.checkpoint.actions",
-                    },
-                }
-            )
-
-        return actions
-
-    def upsert_checkpoint_for_csv_and_parquet(self, *, checkpoint_name: str, data_source_name: str, csv_asset_name: str,
-                csv_suite_name: str, parquet_asset_name: str, parquet_suite_name: str, ) -> gx.Checkpoint:
+    
+    def build_or_update_checkpoint(self, cp_name: str, vd_names: Optional[List[str]] = None, action_list: Optional[List[Dict[str, Any]]] = None) -> gx.Checkpoint:
         """
-        Create or update a Checkpoint that validates both CSV and Parquet assets.
-        Args:
-            checkpoint_name (str): The name of the Checkpoint.
-            data_source_name (str): The name of the data source containing the assets.
-            csv_asset_name (str): The name of the CSV asset.
-            csv_suite_name (str): The name of the Expectation Suite for the CSV asset.
-            parquet_asset_name (str): The name of the Parquet asset.
-            parquet_suite_name (str): The name of the Expectation Suite for the Parquet asset.
-        Returns:
-            gx.Checkpoint: The created or updated Checkpoint.
+        Creates/updates a Checkpoint that runs all ValidationDefinitions found in the context.
+        Optionally filter by a list of VD names.
         """
+        # Sanity checks
+        if cp_name is None or cp_name.strip() == "":
+            raise ValueError(f"{self.error_msg_prefix} Checkpoint name must be a non-empty string.")
+        if vd_names is None:
+            raise ValueError(f"{self.error_msg_prefix} Checkpoint Validation Definition names list must be provided.")
+        if action_list is None:
+            print(f"{self.info_msg_prefix} Checkpoint was Not supllied with action list. Default to empty list.")
+            action_list = []
 
-        # --- get assets ---
-        ds = self._context.data_sources.get(data_source_name)
-        if ds is None:
-            raise ValueError(f"Datasource '{data_source_name}' not found.")
-
-        csv_asset = ds.get_asset(csv_asset_name)
-        pq_asset = ds.get_asset(parquet_asset_name)
-        if csv_asset is None:
-            raise ValueError(f"CSV asset '{csv_asset_name}' not found.")
-        if pq_asset is None:
-            raise ValueError(f"Parquet asset '{parquet_asset_name}' not found.")
-
-        # --- get suites ---
-        csv_suite = self._context.suites.get(name=csv_suite_name)
-        pq_suite = self._context.suites.get(name=parquet_suite_name)
-
-        # --- pick an existing BatchDefinition from each asset (required for ValidationDefinition) ---
-        if not getattr(csv_asset, "batch_definitions", None):
-            raise RuntimeError(f"No batch_definitions found on asset '{csv_asset_name}'.")
-        if not getattr(pq_asset, "batch_definitions", None):
-            raise RuntimeError(f"No batch_definitions found on asset '{parquet_asset_name}'.")
-
-        csv_bd = csv_asset.batch_definitions[0]
-        pq_bd = pq_asset.batch_definitions[0]
-
-        # --- create / upsert validation definitions ---
-        csv_vd_name = f"{csv_asset_name}__{csv_suite_name}"
-        pq_vd_name = f"{parquet_asset_name}__{parquet_suite_name}"
-
-        csv_vd = gx.ValidationDefinition(name=csv_vd_name, data=csv_bd, suite=csv_suite)
-        pq_vd  = gx.ValidationDefinition(name=pq_vd_name,  data=pq_bd,  suite=pq_suite)
-
-        csv_vd = self._context.validation_definitions.add_or_update(validation=csv_vd)
-        pq_vd  = self._context.validation_definitions.add_or_update(validation=pq_vd)
-
-        # --- create / upsert checkpoint with BOTH validation definitions ---
-        checkpoint = gx.Checkpoint(
-            name=checkpoint_name,
-            validation_definitions=[csv_vd, pq_vd],
-            actions=[],  # keep empty for now; add UpdateDataDocsAction / Slack later
+        scheckpoint = gx.Checkpoint(
+            name=cp_name,
+            validation_definitions=vd_names,
+            actions=action_list,
+            result_format={"result_format": "SUMMARY"},
         )
 
-        checkpoint = self._context.checkpoints.add_or_update(checkpoint=checkpoint)
-        return checkpoint
+        scheckpoint = self._context.checkpoints.add_or_update(checkpoint=scheckpoint)
+        print(f"{self.info_msg_prefix} Checkpoint '{cp_name}' created/updated.")
+        return scheckpoint
 
+    
+    # TBD: Action list builder could be more complex based on needs.
+    # TBD: Hard Coded should be considered as the project develop in after phase one.
+    @staticmethod
+    def create_action_list() -> list[dict]:
+        """ Create a list of actions for a Checkpoint.
+        Returns:
+            list[dict]: A list of action configurations."""
+        actions = [ UpdateDataDocsAction( name="update_data_docs") ]
+        return actions
+    
 
-    # def add_or_update_checkpoint(self, checkpoint_name: str, validations: list[dict], action_list: list[dict] | None = None ) -> Any:
-    #     """Get or create a checkpoint with specified actions.
-    #     Args:
-    #         checkpoint_name (str): Name of the checkpoint.
-    #         validations (list[dict]): List of validation definitions.
-    #         actions (Dict[str, Any]): Actions to associate with the checkpoint.
-    #     Returns:
-    #         Any: The checkpoint object."""
-    #     try:
-    #         checkpoint = self._context.add_or_update_checkpoint(
-    #             name=checkpoint_name,
-    #             validations=validations,
-    #             action_list=action_list,
-    #         )            
-    #     except Exception as e:
-    #         print(f"{self.error_msg_prefix} creating/updating Checkpoint: {e}")
-    #         raise RuntimeError() from e
-    #     return checkpoint
+    def get_all_validation_definition_names(self) -> List[Dict[str, Any]]:
+        """
+        Get all Validation Definition names in the context.
+        Returns:
+            List[str]: A list of all Validation Definition names.
+        """
+        all_vds = self._context.validation_definitions.all()
+
+        if not all_vds:
+            raise ValueError("ValidationDefinitions not found in the context.")
+
+        vd_dict = [self.vd_to_dict(vd) for vd in all_vds]
+        return vd_dict
     
-    # def merge_checkpoint_validations(self, checkpoint: Any, new_validations: list[dict]) -> Any:
-    #     """Merge new validations into an existing checkpoint.
-    #     Args:
-    #         checkpoint (Any): The existing checkpoint object.
-    #         new_validations (list[dict]): New validation definitions to merge.
-    #     Returns:
-    #         Any: The updated checkpoint object."""
-    #     try:
-    #         existing_validations = checkpoint.validations or []
-    #         merged_validations = existing_validations.copy()
-    #         merged_validations.extend(new_validations)
-    #         checkpoint.validations = merged_validations
-    #         updated_checkpoint = self._context.add_or_update_checkpoint(
-    #             name=checkpoint.name,
-    #             validations=merged_validations,
-    #             action_list=checkpoint.action_list,
-    #         )
-    #         print(f"{self.info_msg_prefix} Merged {len(new_validations)} new validations into Checkpoint '{checkpoint.name}'. Total validations now: {len(merged_validations)}.")
-    #     except Exception as e:
-    #         print(f"{self.error_msg_prefix} merging validations into Checkpoint: {e}")
-    #         raise RuntimeError() from e
-    #     return updated_checkpoint
-    
-# %%
-if __name__ == "__main__":
-    factory = GreatExpectationsContextFactory()
-    context = factory.get_or_create_context()
+    #TBD: This method may need to be adjusted based on GX version and ValidationDefinition implementation.
+    @staticmethod
+    def vd_to_dict(vd: Any) -> Dict[str, Any]:
+        """ Serialize a ValidationDefinition to a dictionary.
+        Args:
+            vd (Any): The ValidationDefinition to serialize.
+        Returns:
+            Dict[str, Any]: The serialized dictionary representation of the ValidationDefinition.
+        Raises:
+            TypeError: If the ValidationDefinition cannot be serialized to a dictionary.
+        """
+        # GX commonly supports one of these across minor releases
+        if hasattr(vd, "to_json_dict"):
+            return vd.to_json_dict()
+        if hasattr(vd, "dict"):  # pydantic v1
+            return vd.dict()
+        if hasattr(vd, "to_dict"):
+            return vd.to_dict()
+        # last resort: try __dict__ (not ideal, but better than crashing silently)
+        raise TypeError(f"Cannot serialize ValidationDefinition of type {type(vd)} to dict")

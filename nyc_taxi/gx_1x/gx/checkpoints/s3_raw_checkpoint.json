@@ -1,0 +1,18 @@
+{
+  "actions": [],
+  "id": "20c1f0bd-b3e1-4c4c-b0e7-bb9d651fc7cc",
+  "name": "s3_raw_checkpoint",
+  "result_format": {
+    "result_format": "SUMMARY"
+  },
+  "validation_definitions": [
+    {
+      "id": "f5a8777f-3cf0-43fc-ba2b-bea81bc1ee78",
+      "name": "raw_csv__landing_suite_csv"
+    },
+    {
+      "id": "6b611c8f-78a2-4a10-9356-bf352699ad2f",
+      "name": "raw_parquet__landing_suite_parquet"
+    }
+  ]
+}
