@@ -99,19 +99,19 @@ fluent_datasources:
     assets:
       raw_csv:
         type: csv
-        id: d65da548-1687-4b63-9a9e-8513309f5a6b
+        id: 32e54bbd-c85e-418f-a5f7-9bf0b9a1cc5b
         batch_definitions:
           raw_csv_bd:
-            id: 74dbea3a-5d5e-4492-a14f-8be367e78e2e
+            id: 66bd507b-ad03-4ff1-9c0d-f9b442ab85c9
             partitioner:
         connect_options:
           s3_prefix: raw/csv/
       raw_parquet:
         type: parquet
-        id: 0b0bfcd4-a3fa-4be3-9055-372a52f0ff96
+        id: 0ead6828-a463-4810-9918-6957c5a77f2d
         batch_definitions:
           raw_parquet_bd:
-            id: a8857e49-da00-4cf5-ba2d-7157fb228059
+            id: 36f89200-15fe-4872-9dd7-a4fb9661f48a
             partitioner:
         connect_options:
           s3_prefix: raw/parquet/

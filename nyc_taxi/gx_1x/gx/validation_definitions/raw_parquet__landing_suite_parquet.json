@@ -1,11 +1,11 @@
 {
   "data": {
     "asset": {
-      "id": "0b0bfcd4-a3fa-4be3-9055-372a52f0ff96",
+      "id": "0ead6828-a463-4810-9918-6957c5a77f2d",
       "name": "raw_parquet"
     },
     "batch_definition": {
-      "id": "a8857e49-da00-4cf5-ba2d-7157fb228059",
+      "id": "36f89200-15fe-4872-9dd7-a4fb9661f48a",
       "name": "raw_parquet_bd"
     },
     "datasource": {
