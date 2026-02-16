@@ -1,0 +1,22 @@
+{
+  "data": {
+    "asset": {
+      "id": "32e54bbd-c85e-418f-a5f7-9bf0b9a1cc5b",
+      "name": "raw_csv"
+    },
+    "batch_definition": {
+      "id": "66bd507b-ad03-4ff1-9c0d-f9b442ab85c9",
+      "name": "raw_csv_bd"
+    },
+    "datasource": {
+      "id": "54e29fbc-eec6-4a5d-b210-c625e96e6614",
+      "name": "s3_nyc-taxi-dev.raw"
+    }
+  },
+  "id": "f5a8777f-3cf0-43fc-ba2b-bea81bc1ee78",
+  "name": "raw_csv__landing_suite_csv",
+  "suite": {
+    "id": "76974e20-53c6-4f22-a88b-fd6968eff52f",
+    "name": "landing_suite_csv"
+  }
+}

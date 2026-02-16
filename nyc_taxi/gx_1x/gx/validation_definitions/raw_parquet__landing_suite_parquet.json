@@ -1,0 +1,22 @@
+{
+  "data": {
+    "asset": {
+      "id": "0ead6828-a463-4810-9918-6957c5a77f2d",
+      "name": "raw_parquet"
+    },
+    "batch_definition": {
+      "id": "36f89200-15fe-4872-9dd7-a4fb9661f48a",
+      "name": "raw_parquet_bd"
+    },
+    "datasource": {
+      "id": "54e29fbc-eec6-4a5d-b210-c625e96e6614",
+      "name": "s3_nyc-taxi-dev.raw"
+    }
+  },
+  "id": "6b611c8f-78a2-4a10-9356-bf352699ad2f",
+  "name": "raw_parquet__landing_suite_parquet",
+  "suite": {
+    "id": "b6e38174-0ab2-4e62-88e4-c5523c9e62b7",
+    "name": "landing_suite_parquet"
+  }
+}

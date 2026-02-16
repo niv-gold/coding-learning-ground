@@ -58,22 +58,19 @@ class ArchiveLocalFiles(Archiver):
         except FileNotFoundError:
             # Source is missing; caller should ensure file exists before archiving
             print('--> Archive FAILED!!!', '\n', '--> Source file is missing')
-            return None
-
+            raise e
         except PermissionError:
             # Likely insufficient filesystem permissions
             print('--> Archive FAILED!!!', '\n', '--> Permission issue while archiving!!!')
-            return None
-
+            raise e
         except FileExistsError:
             # Do not overwrite existing archived files
             print('--> Archive FAILED!!!', '\n', '--> File name already exists in archive!!!')
-            return None
-
+            raise e
         except Exception as e:
             # Catch-all for unexpected errors; surface details for debugging
             print('--> Archive FAILED!!!', '\n', f'-->  Error message: {e}')
-            return None
+            raise e
 
         # Success acknowledgement
         print(f'--> {file.name} - SUCCESSFULLY archived')

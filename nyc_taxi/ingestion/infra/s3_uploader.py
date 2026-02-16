@@ -1,12 +1,18 @@
 from __future__ import annotations
+import sys
+from pathlib import Path
+if __name__ == "__main__":
+    PROJECT_ROOT = Path(__file__).resolve().parents[3]
+    sys.path.insert(0, str(PROJECT_ROOT))
+    print("Project root added to sys.path[0]:", sys.path[0])
+
 from nyc_taxi.ingestion.config.settings import S3Config
 from nyc_taxi.ingestion.core.ports import Uploader, FileIdentity
 from nyc_taxi.ingestion.infra.s3_clinet import S3Client
-from pathlib import Path
 from datetime import datetime
 from nyc_taxi.ingestion.config.settings import MyLocalData
 from dotenv import load_dotenv
-import os
+
 
 class S3Uploader(Uploader):
     """Upload files to Amazon S3.
@@ -40,13 +46,27 @@ class S3Uploader(Uploader):
             file (FileIdentity): File metadata object.
 
         Returns:
-            str: Object key to use in S3 (prefix + file name).
+            str: Object key to use in S3 (prefix + file_type_subdir + file name).
 
-        Main use (simple):
+        Main use:
             - Ensures files are written under `base_prefix` when provided.
+            - Organizes files into subdirectories by file type (csv, parquet, json, etc.).
+            
+        Example:
+            - base_prefix='raw', file='data.csv' -> 's3://bucket/raw/csv/data.csv'
+            - base_prefix='raw', file='data.parquet' -> 's3://bucket/raw/parquet/data.parquet'
         """
+        # Extract file extension (without the dot) and convert to lowercase
+        file_suffix = Path(file.name).suffix.lstrip('.').lower()
+        if file_suffix not in {'csv', 'parquet'}:
+            raise ValueError(f"Unsupported file extension: .{file_suffix}. Supported: csv, parquet.")            
+        
         if self.base_prefix:
-            return f'{self.base_prefix}/{file.name}'
+            if file_suffix:
+                return f'{self.base_prefix}/{file_suffix}/{file.name}'
+            else:
+                # If no suffix, place in base_prefix directly
+                return f'{self.base_prefix}/{file.name}'
         return file.name
 
     def upload(self, file: FileIdentity) -> None:
