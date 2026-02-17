@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 
 # Virtual environments
-env/
+venv/
+.env/
 venv*/
 
 # OS files
